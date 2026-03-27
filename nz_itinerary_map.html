@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Diana & Nikita – New Zealand 2026</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --cream: #f6f1e9; --ink: #1a1a1a; --gold: #b07d3a; --gold-light: #dfc28a;
+  --wedding: #b83a3a; --south: #2e6e5e; --north: #5a3a7e; --transit: #2a5070;
+  --sidebar: 320px;
+}
+html, body { height: 100%; overflow: hidden; font-family: 'Outfit', sans-serif; background: var(--cream); color: var(--ink); }
+#header {
+  height: 56px; background: var(--ink); color: var(--cream);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 1.4rem; border-bottom: 2px solid var(--gold);
+  flex-shrink: 0; gap: 1rem; z-index: 1000; position: relative;
+}
+.h-brand { font-family: 'Cormorant Garamond', serif; font-size: 1.4rem; line-height: 1; white-space: nowrap; }
+.h-brand em { color: var(--gold-light); font-style: italic; }
+.h-sub { font-size: 0.58rem; opacity: 0.45; letter-spacing: 0.12em; text-transform: uppercase; margin-top: 2px; }
+.h-legend { display: flex; gap: 1rem; flex-wrap: wrap; }
+.leg { display: flex; align-items: center; gap: 0.3rem; font-size: 0.65rem; opacity: 0.8; white-space: nowrap; }
+.leg-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.leg-dot.wedding { background: var(--wedding); }
+.leg-dot.south   { background: var(--south); }
+.leg-dot.north   { background: var(--north); }
+.leg-dot.transit { background: var(--transit); }
+.h-stats { display: flex; gap: 1.2rem; }
+.hstat { text-align: center; }
+.hstat-val { font-family: 'Cormorant Garamond', serif; font-size: 1.1rem; color: var(--gold-light); line-height: 1; }
+.hstat-lbl { font-size: 0.52rem; opacity: 0.45; text-transform: uppercase; letter-spacing: 0.08em; }
+#app { display: flex; height: calc(100vh - 56px); }
+#sidebar {
+  width: var(--sidebar); min-width: var(--sidebar); background: #fff;
+  border-right: 1px solid #e4e0d8; display: flex; flex-direction: column; overflow: hidden; z-index: 500;
+}
+#sidebar-header { padding: 0.65rem 0.9rem; border-bottom: 1px solid #eee; flex-shrink: 0; background: var(--cream); }
+#search {
+  width: 100%; padding: 0.42rem 0.75rem; border: 1px solid #ddd; border-radius: 20px;
+  font-family: 'Outfit', sans-serif; font-size: 0.72rem; background: #fff; outline: none; transition: border-color 0.15s;
+}
+#search:focus { border-color: var(--gold); }
+#search::placeholder { color: #bbb; }
+#sidebar-list { overflow-y: auto; flex: 1; }
+#sidebar-list::-webkit-scrollbar { width: 3px; }
+#sidebar-list::-webkit-scrollbar-thumb { background: var(--gold-light); border-radius: 2px; }
+.sec-head {
+  position: sticky; top: 0; z-index: 20; padding: 0.38rem 0.9rem;
+  font-size: 0.58rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
+  color: #fff; display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none;
+}
+.sec-head.wedding { background: var(--wedding); }
+.sec-head.south   { background: var(--south); }
+.sec-head.transit { background: var(--transit); }
+.sec-head.north   { background: var(--north); }
+.sec-chevron { font-size: 0.7rem; transition: transform 0.2s; display: inline-block; }
+.sec-head.collapsed .sec-chevron { transform: rotate(-90deg); }
+.sec-body { overflow: hidden; transition: max-height 0.28s ease; }
+.sec-body.collapsed { max-height: 0 !important; }
+.card {
+  padding: 0.52rem 0.9rem; border-bottom: 1px solid #f2f0ec; cursor: pointer;
+  display: flex; gap: 0.55rem; align-items: flex-start; transition: background 0.1s;
+}
+.card:hover { background: #faf7f2; }
+.card.active { background: #f0e9d8; border-left: 3px solid var(--gold); padding-left: calc(0.9rem - 3px); }
+.card:last-child { border-bottom: none; }
+.badge {
+  width: 19px; height: 19px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-size: 0.55rem; font-weight: 700; color: #fff; flex-shrink: 0; margin-top: 2px;
+}
+.badge.wedding { background: var(--wedding); }
+.badge.south   { background: var(--south); }
+.badge.north   { background: var(--north); }
+.badge.transit { background: var(--transit); }
+.ci { flex: 1; min-width: 0; }
+.cname  { font-weight: 500; font-size: 0.8rem; line-height: 1.2; }
+.cdates { font-size: 0.62rem; color: #aaa; margin: 1px 0; }
+.cnote  { font-size: 0.67rem; color: #777; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.caccom { font-size: 0.6rem; color: var(--south); margin-top: 2px; font-style: italic; }
+.ctag { display: inline-block; font-size: 0.48rem; padding: 1px 4px; border-radius: 2px; color: #fff; vertical-align: middle; margin-left: 3px; text-transform: uppercase; letter-spacing: 0.05em; }
+.ctag.w { background: var(--wedding); }
+.ctag.b { background: #d07030; }
+.booked-badge { display: inline-block; background: #e8f5e8; color: #2a6a2a; font-size: 0.52rem; padding: 1px 4px; border-radius: 3px; font-style: normal; margin-left: 3px; vertical-align: middle; }
+#map-wrap { flex: 1; position: relative; overflow: hidden; }
+#map { width: 100%; height: 100%; }
+.leaflet-container { font-family: 'Outfit', sans-serif; }
+/* Marker styles */
+.mk-outer { display: flex; flex-direction: column; align-items: center; }
+.mk-pin {
+  border-radius: 50%; border: 2.5px solid rgba(255,255,255,0.95); display: flex; align-items: center; justify-content: center;
+  font-family: 'Outfit', sans-serif; font-weight: 700; color: #fff;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.35); transition: transform 0.15s;
+  width: 24px; height: 24px; font-size: 0.6rem;
+}
+.mk-pin.big { width: 30px; height: 30px; font-size: 0.72rem; animation: hb 2.2s ease-in-out infinite; }
+.mk-pin.wedding { background: var(--wedding); }
+.mk-pin.south   { background: var(--south); }
+.mk-pin.north   { background: var(--north); }
+.mk-pin.transit { background: var(--transit); }
+.mk-pin.hl { transform: scale(1.35) !important; box-shadow: 0 4px 14px rgba(0,0,0,0.5); }
+@keyframes hb {
+  0%,100% { box-shadow: 0 2px 8px rgba(0,0,0,0.35), 0 0 0 0 rgba(184,58,58,0.5); }
+  50%     { box-shadow: 0 2px 8px rgba(0,0,0,0.35), 0 0 0 10px rgba(184,58,58,0); }
+}
+.mk-lbl {
+  font-family: 'Outfit', sans-serif; font-size: 9.5px; font-weight: 600; white-space: nowrap;
+  background: rgba(255,255,255,0.92); padding: 1px 5px; border-radius: 3px; color: var(--ink);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.14); margin-top: 2px; line-height: 1.4;
+}
+/* Popup */
+.leaflet-popup-content-wrapper { border-radius: 9px !important; padding: 0 !important; box-shadow: 0 8px 28px rgba(0,0,0,0.2) !important; overflow: hidden; border: none !important; }
+.leaflet-popup-content { margin: 0 !important; width: 230px !important; }
+.leaflet-popup-tip-container { display: none !important; }
+.pop-bar { height: 4px; }
+.pop-body { padding: 0.8rem 1rem; }
+.pop-body h3 { font-family: 'Cormorant Garamond', serif; font-size: 1.05rem; margin-bottom: 2px; }
+.pop-dates { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 5px; }
+.pop-accom { font-size: 0.68rem; color: #555; font-style: italic; margin-bottom: 4px; }
+.pop-note { font-size: 0.71rem; line-height: 1.42; color: #333; }
+.pop-hint { font-size: 0.58rem; color: #bbb; margin-top: 5px; }
+/* Detail panel */
+#detail {
+  position: absolute; right: 0; top: 0; bottom: 0; width: 300px; background: #fff;
+  border-left: 1px solid #e0ddd8; box-shadow: -6px 0 28px rgba(0,0,0,0.1);
+  z-index: 600; display: flex; flex-direction: column;
+  transform: translateX(100%); transition: transform 0.25s cubic-bezier(.4,0,.2,1); overflow-y: auto;
+}
+#detail.open { transform: translateX(0); }
+#detail::-webkit-scrollbar { width: 3px; }
+#detail::-webkit-scrollbar-thumb { background: var(--gold-light); }
+.dp-bar { height: 5px; flex-shrink: 0; }
+.dp-close {
+  position: absolute; top: 0.7rem; right: 0.75rem; background: rgba(0,0,0,0.07); border: none;
+  border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 0.75rem; color: #666; transition: background 0.1s;
+}
+.dp-close:hover { background: rgba(0,0,0,0.14); }
+.dp-inner { padding: 1rem 1.1rem; }
+.dp-num { font-size: 0.57rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: #ccc; }
+.dp-name { font-family: 'Cormorant Garamond', serif; font-size: 1.5rem; line-height: 1.1; margin: 0.1rem 0; }
+.dp-dates { font-size: 0.68rem; color: #aaa; margin-bottom: 0.9rem; }
+.dp-sect { margin-bottom: 1rem; }
+.dp-lbl { font-size: 0.55rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: #ccc; margin-bottom: 0.28rem; }
+.dp-val { font-size: 0.8rem; line-height: 1.55; color: #444; }
+.dp-accom-val { font-size: 0.78rem; color: var(--south); font-style: italic; }
+.dp-booked { display: inline-block; background: #e8f5e8; color: #2a6a2a; font-size: 0.53rem; padding: 1px 5px; border-radius: 3px; font-style: normal; margin-left: 4px; vertical-align: middle; font-weight: 500; }
+.dp-pending { display: inline-block; background: #fff3e0; color: #a06000; font-size: 0.53rem; padding: 1px 5px; border-radius: 3px; font-style: normal; margin-left: 4px; vertical-align: middle; font-weight: 500; }
+/* Layer toggles */
+#layer-ctrl {
+  position: absolute; bottom: 1.5rem; left: 0.8rem; z-index: 400; display: flex; flex-direction: column; gap: 0.35rem;
+}
+.ltbtn {
+  background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 0.32rem 0.6rem;
+  font-family: 'Outfit', sans-serif; font-size: 0.64rem; font-weight: 500; cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 0.35rem; white-space: nowrap; transition: all 0.15s;
+}
+.ltbtn:hover { background: #f5f5f5; }
+.ltbtn.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+.ltdot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <div>
+    <div class="h-brand">Diana &amp; <em>Nikita</em></div>
+    <div class="h-sub">New Zealand · Aug 10 – Oct 2, 2026</div>
+  </div>
+  <div class="h-legend">
+    <div class="leg"><div class="leg-dot wedding"></div>Wedding/QTown</div>
+    <div class="leg"><div class="leg-dot south"></div>South Island</div>
+    <div class="leg"><div class="leg-dot north"></div>North Island</div>
+    <div class="leg"><div class="leg-dot transit"></div>Transit</div>
+  </div>
+  <div class="h-stats">
+    <div class="hstat"><div class="hstat-val">54</div><div class="hstat-lbl">Days</div></div>
+    <div class="hstat"><div class="hstat-val">25</div><div class="hstat-lbl">Stops</div></div>
+    <div class="hstat"><div class="hstat-val">Aug 14</div><div class="hstat-lbl">Wedding 💍</div></div>
+  </div>
+</div>
+
+<div id="app">
+  <div id="sidebar">
+    <div id="sidebar-header">
+      <input id="search" type="text" placeholder="🔍  Search stops, notes, dates…">
+    </div>
+    <div id="sidebar-list"></div>
+  </div>
+  <div id="map-wrap">
+    <div id="map"></div>
+    <div id="detail">
+      <div class="dp-bar" id="dp-bar"></div>
+      <button class="dp-close" id="dp-close">✕</button>
+      <div class="dp-inner" id="dp-inner"></div>
+    </div>
+    <div id="layer-ctrl">
+      <button class="ltbtn on" id="btn-south" onclick="toggleLayer('south')"><div class="ltdot" style="background:var(--south)"></div>South Island</button>
+      <button class="ltbtn on" id="btn-north" onclick="toggleLayer('north')"><div class="ltdot" style="background:var(--north)"></div>North Island</button>
+      <button class="ltbtn on" id="btn-routes" onclick="toggleRoutes()"><div class="ltdot" style="background:#888"></div>Routes</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const COLORS = { wedding:'#b83a3a', south:'#2e6e5e', north:'#5a3a7e', transit:'#2a5070' };
+const SEC_LABELS = { wedding:'Wedding & Queenstown', south:'South Island', transit:'Transit / Flights', north:'North Island' };
+
+const STOPS = [
+  {n:1,  name:"Queenstown",              short:"Queenstown",       type:"wedding", lat:-45.031, lng:168.663, dates:"Aug 11–19",    nights:9,  booked:true,
+   accom:"STAY of Queenstown – Milford Suite",
+   note:"Arrive 14:30. R&R, Onsen Hot Pools (Aug 13), Wedding Aug 14 💍, Arrowtown half-day, Glenorchy day trip, snowboarding.\nFood: Sunfire, Toast & Oak, Fino, Sherwood Manor, Sundays.\nHigh Country Horses? Bungee? Skydiving?"},
+  {n:2,  name:"Manapouri",               short:"Manapouri",         type:"south",   lat:-45.568, lng:167.616, dates:"Aug 20",       nights:1,  booked:true,
+   accom:"Cozy Sleepout in Manapouri (no kitchen!)",
+   note:"Drive from Queenstown. Have breakfast in QTown first + plan dinner before arriving — no kitchen on site."},
+  {n:3,  name:"Doubtful Sound",          short:"Doubtful Sound",    type:"south",   lat:-45.430, lng:167.107, dates:"Aug 21–22",    nights:2,  booked:true,
+   accom:"RealNZ The Navigator (overnight boat)",
+   note:"Check out of Manapouri. Board RealNZ overnight boat midday. One of NZ's most remote and spectacular fiords — very few visitors."},
+  {n:4,  name:"Te Anau",                 short:"Te Anau",           type:"south",   lat:-45.415, lng:167.719, dates:"Aug 23–24",    nights:2,  booked:true,
+   accom:"Te Anau Lakefront Backpackers",
+   note:"Disembark boat. Glow worm cave tour, bird sanctuary, Rainbow Reach walk, Fiordland Historic Cruises (sunset).\nAug 24: Drive to Milford Sound — SNOW CHAINS REQUIRED! Optional boat trip. Check if Lake Marian walk is open.\nFood: Bailiez for mussels?"},
+  {n:5,  name:"Catlins – Curio Bay",     short:"Curio Bay",         type:"south",   lat:-46.683, lng:169.133, dates:"Aug 25",       nights:1,  booked:true,
+   accom:"Curio Bay Accommodation",
+   note:"Route: Gemstone Beach → Invercargill (groceries + fuel) → Slope Point → Curio Bay.\nArrive in time for penguin viewing at dusk (~5pm). Petrified Forest viewpoint at Curio Bay Heritage Centre."},
+  {n:6,  name:"Catlins – Kaka Point",    short:"Kaka Point",        type:"south",   lat:-46.356, lng:169.838, dates:"Aug 26",       nights:1,  booked:true,
+   accom:"SeaScape Accommodation – Apartment B",
+   note:"Explore Catlins heading east. Cathedral Caves (within 1.5hrs of low tide!), McLean Falls, Purakaunui Falls, Jack's Blowhole. Yellow-eyed penguins year-round."},
+  {n:7,  name:"Dunedin",                 short:"Dunedin",           type:"south",   lat:-45.879, lng:170.504, dates:"Aug 27–28",    nights:2,  booked:true,
+   accom:"Dunedin House Boutique Hotel (breakfast included)",
+   note:"Aug 27: Sunrise at Nugget Point lighthouse, then drive to Dunedin. City focus + Tunnel Beach walk.\nAug 28: Otago Peninsula full day — Albatross Centre, OPERA Triple Crown combo, Blue Penguins Pukekura, Allan's Beach (fur seals + sea lions), Larnach Castle."},
+  {n:8,  name:"Twizel / Mt Cook",        short:"Twizel / Mt Cook",  type:"south",   lat:-44.259, lng:170.104, dates:"Aug 29–30",    nights:2,  booked:false,
+   accom:"Twizel – The Cabin",
+   note:"Via Moeraki Boulders, then up SH83. Stop at Lake Pukaki viewpoint + Peter's Lookout on SH80.\nAug 30: Day trip into Mt Cook. Heli hike — book first slot on arrival (mtcookskiplanes.com). Hooker Valley Track (10km, 3.5hrs). Star gazing."},
+  {n:9,  name:"Lake Tekapo",             short:"Lake Tekapo",       type:"south",   lat:-44.004, lng:170.483, dates:"Aug 31–Sep 1", nights:2,  booked:false,
+   accom:"Galaxy Lakeview House",
+   note:"Optional backup heli hike or return to Mt Cook. Tekapo Hot Springs.\nTonight: Soak in the Stars tour — tekapostargazing.co.nz (Thu–Mon only, book ahead!). Church of the Good Shepherd. Mt John Astro Café. Mackenzie horse trekking?"},
+  {n:10, name:"Christchurch",            short:"Christchurch",      type:"south",   lat:-43.533, lng:172.634, dates:"Sep 2",        nights:1,  booked:false,
+   accom:"Orari Boutique Hotel",
+   note:"3hr drive from Tekapo — leave early! Must-stop: Fairlie Bakehouse pies.\nAmiki Tours (Riwai) for late afternoon cultural walk + dinner. Transitional Cathedral, Botanic Gardens."},
+  {n:11, name:"Kaikōura",                short:"Kaikōura",          type:"south",   lat:-42.399, lng:173.681, dates:"Sep 3–4 🎂",   nights:2,  booked:true,
+   accom:"Sudima Hotel Kaikōura (PAID)",
+   note:"Sep 3: Christchurch Gondola/tram ride, drive to Kaikōura, ziplining pm. Dark sky reserve for stars.\nSep 4: DIANA'S BIRTHDAY 🎂 Whale watching morning (book ahead — fills up fast!). Peninsula walk, seafood feast.\nFood: Flo&Co breakfast, The Pier Hotel (fancy), Zephyr restaurant."},
+  {n:12, name:"Blenheim",                short:"Blenheim",          type:"south",   lat:-41.513, lng:173.961, dates:"Sep 5–6",      nights:2,  booked:false,
+   accom:"St Leonard's – Stables Cottage",
+   note:"Sep 5: Backup whale watching if needed, then drive to Blenheim.\nSep 6: Full Marlborough wine day — Wairau River / Number 11 Restaurant, Saint Clair Vineyard Kitchen (book lunch well ahead!), Small Town Winery, Wither Hills. OR Marlborough Icons Tour (wine + cruise).\nFood: Dodson St draft beer, Makana Chocolate."},
+  {n:13, name:"Kaiteriteri",             short:"Kaiteriteri",       type:"south",   lat:-40.993, lng:172.999, dates:"Sep 7–8",      nights:2,  booked:false,
+   accom:"TBC",
+   note:"BIG DRIVE DAY. Via Picton (brunch at Picton Village Bakkerij) + Havelock (The Mussel Pot — greenshell mussels!). Marlborough Sounds cruise option.\nSep 8: Abel Tasman full day — Kahu Kayaks or Wilsons (book ahead — September is the best month!)."},
+  {n:14, name:"Hokitika",                short:"Hokitika",          type:"south",   lat:-42.716, lng:170.975, dates:"Sep 9",        nights:1,  booked:false,
+   accom:"TBC",
+   note:"Drive south via optional St Arnaud/Lake Rotoiti detour. Stop at Punakaiki — Pancake Rocks + Pororari River Track.\nPounamu Pathways greenstone centre. Hokitika: greenstone carvers, Hokitika Gorge turquoise water. After dark: Glow Worm Dell (free!)."},
+  {n:15, name:"Franz Josef / Fox",       short:"Franz Josef/Fox",   type:"south",   lat:-43.388, lng:170.183, dates:"Sep 10–11",    nights:2,  booked:false,
+   accom:"TBC",
+   note:"Sep 10: Tatare Tunnels, Peter's Pool, Roberts Point Track (start early — full day). Fox: Lake Matheson mirror lake, Moraine Walk. Wilderness Tours kayak/quads ATVs.\nSep 11: HELI HIKE 🚁 first thing in morning — Franz Glacier Guides OR Everything NZ option."},
+  {n:16, name:"Wānaka",                  short:"Wānaka",            type:"south",   lat:-44.701, lng:169.132, dates:"Sep 12–13",    nights:2,  booked:false,
+   accom:"TBC",
+   note:"Sep 12: Backup heli hike if needed, then big drive to Wānaka via spectacular Haast Pass.\nSep 13: Big walk — Roys Peak (1578m, 6hrs, epic 360° views) OR Isthmus Peak OR Rob Roy Glacier Track (10km, 4hrs). Famous lone Wānaka Tree. Puzzling World?"},
+  {n:17, name:"Flight: QTown → AKL",    short:"Flight South→North",type:"transit", lat:-45.021, lng:168.741, dates:"Sep 15",        nights:0,  booked:true,
+   accom:"Air NZ — Queenstown 13:05 → Auckland 14:55",
+   note:"Drive Wānaka → Queenstown (~1hr), return South Island hire car. Fly Queenstown 13:05 → Auckland 14:55. ✅ Flight booked. Pick up North Island rental car at Auckland Airport."},
+  {n:18, name:"Coromandel",              short:"Coromandel",        type:"north",   lat:-36.758, lng:175.491, dates:"Sep 16–18",    nights:3,  booked:false,
+   accom:"TBC",
+   note:"Drive from Auckland. Hot Water Beach (2hrs either side of low tide — CHECK TIDE TIMES). Cathedral Cove walk (best near low tide). New Chums Beach (short walk in). Sea Cave Adventures. 3 nights gives flexibility with tides."},
+  {n:19, name:"Rotorua",                 short:"Rotorua",           type:"north",   lat:-38.137, lng:176.252, dates:"Sep 19–21",    nights:3,  booked:false,
+   accom:"TBC",
+   note:"Drive via Hobbiton (PREBOOK — sells out months ahead!!) and Putaruru Blue Springs (Leslie Rd carpark). Geothermal parks, Māori cultural experience.\nSep 21 option: Maketu day trip with MUIRS Tours."},
+  {n:20, name:"Taupō",                   short:"Taupō",             type:"north",   lat:-38.685, lng:176.070, dates:"Sep 22–23",    nights:2,  booked:false,
+   accom:"TBC",
+   note:"Drive via Waimangu OR Waiotapu geothermal park. Taupō lakefront — Plateau Bar.\nSep 23: Tongariro day trip — Gollum's Pool + Taranaki Falls. Ohakune for toasties + Johnny Nations éclairs. Desert Road with views of Mt Doom (Ngauruhoe)."},
+  {n:21, name:"Auckland (transit)",      short:"Auckland",          type:"north",   lat:-36.952, lng:174.756, dates:"Sep 24",       nights:1,  booked:false,
+   accom:"TBC — practical stop",
+   note:"Drive from Taupō (~2.5hrs). Auckland Museum (world-class, free). Practical errands + laundry. Base for heading north tomorrow."},
+  {n:22, name:"Paihia / Bay of Islands", short:"Bay of Islands",    type:"north",   lat:-35.281, lng:174.091, dates:"Sep 25–27",    nights:3,  booked:false,
+   accom:"TBC",
+   note:"Paihia as base. Waitangi Treaty Grounds (culturally essential). Ferry to Russell (charming colonial town).\nSep 27: Cape Reinga day trip with Fullers GreatSights — Te Paki sand dunes. Book ahead!"},
+  {n:23, name:"Kai Iwi / Mangawhai",     short:"Mangawhai",         type:"north",   lat:-36.132, lng:174.579, dates:"Sep 28–29",    nights:2,  booked:false,
+   accom:"TBC",
+   note:"Drive south via Waipoua Forest — Tane Mahuta (ancient giant kauri tree, unmissable). Kai Iwi Lakes for a swim.\nSep 29: Mangawhai Coastal Cliff Walk (near low tide). Chocolate factory, great cafes, surf beach."},
+  {n:24, name:"Auckland",                short:"Auckland",          type:"north",   lat:-36.848, lng:174.763, dates:"Sep 30–Oct 1", nights:2,  booked:false,
+   accom:"TBC",
+   note:"Drive back to Auckland. Sep 30: Auckland Museum.\nOct 1: Ferry to Rangitoto Island (volcano hike, stunning harbour views) OR Waiheke Island (wineries, art galleries, beaches — use the hop-on bus). Last night in NZ!"},
+  {n:25, name:"✈ Fly home",              short:"Auckland Airport",  type:"transit", lat:-37.008, lng:174.792, dates:"Oct 2",        nights:0,  booked:true,
+   accom:"Depart Auckland Airport 21:10",
+   note:"Fly out 21:10. ✈️ End of an incredible 54-day adventure across New Zealand! Safe travels!"},
+];
+
+// ── MAP ──────────────────────────────────────────────────────────
+const map = L.map('map', { center:[-41.5, 172.5], zoom:6, zoomControl:true });
+map.zoomControl.setPosition('topright');
+
+const topoTiles = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+  maxZoom:17, attribution:'© OpenTopoMap'
+}).addTo(map);
+
+L.control.layers({
+  '🏔 Topographic': topoTiles,
+  '🗺 Streets': L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'© OpenStreetMap' }),
+  '🛰 Satellite': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom:18, attribution:'© Esri' }),
+}, {}, { position:'topright' }).addTo(map);
+
+// ── ROUTES — real roads via OSRM ─────────────────────────────────
+// Each entry: [from_lng, from_lat, to_lng, to_lat, 'type']
+const ROUTE_SEGS = [
+  // South Island driving legs
+  [168.663,-45.031, 167.616,-45.568, 'south'],  // QTown → Manapouri
+  [167.616,-45.568, 167.719,-45.415, 'south'],  // Manapouri → Te Anau (via road, skip fiord)
+  [167.719,-45.415, 169.133,-46.683, 'south'],  // Te Anau → Curio Bay
+  [169.133,-46.683, 169.838,-46.356, 'south'],  // Curio Bay → Kaka Point
+  [169.838,-46.356, 170.504,-45.879, 'south'],  // Kaka Point → Dunedin
+  [170.504,-45.879, 170.104,-44.259, 'south'],  // Dunedin → Twizel
+  [170.104,-44.259, 170.483,-44.004, 'south'],  // Twizel → Tekapo
+  [170.483,-44.004, 172.634,-43.533, 'south'],  // Tekapo → Christchurch
+  [172.634,-43.533, 173.681,-42.399, 'south'],  // Christchurch → Kaikōura
+  [173.681,-42.399, 173.961,-41.513, 'south'],  // Kaikōura → Blenheim
+  [173.961,-41.513, 172.999,-40.993, 'south'],  // Blenheim → Kaiteriteri
+  [172.999,-40.993, 170.975,-42.716, 'south'],  // Kaiteriteri → Hokitika
+  [170.975,-42.716, 170.183,-43.388, 'south'],  // Hokitika → Franz Josef
+  [170.183,-43.388, 169.132,-44.701, 'south'],  // Franz Josef → Wānaka
+  [169.132,-44.701, 168.741,-45.021, 'south'],  // Wānaka → Queenstown
+  // North Island driving legs
+  [174.756,-36.952, 175.491,-36.758, 'north'],  // Auckland → Coromandel
+  [175.491,-36.758, 176.252,-38.137, 'north'],  // Coromandel → Rotorua
+  [176.252,-38.137, 176.070,-38.685, 'north'],  // Rotorua → Taupō
+  [176.070,-38.685, 174.756,-36.952, 'north'],  // Taupō → Auckland
+  [174.756,-36.952, 174.091,-35.281, 'north'],  // Auckland → Paihia
+  [174.091,-35.281, 174.579,-36.132, 'north'],  // Paihia → Mangawhai
+  [174.579,-36.132, 174.763,-36.848, 'north'],  // Mangawhai → Auckland
+];
+
+// Flight arc QTown → Auckland
+const flightPts = [[STOPS[16].lat,STOPS[16].lng],[STOPS[17].lat,STOPS[17].lng]];
+
+// Polyline groups — start empty, filled after OSRM fetch
+const southLines = [], northLines = [];
+const flightLine = L.polyline(flightPts, {color:COLORS.transit, weight:1.8, opacity:0.4, dashArray:'4 9'}).addTo(map);
+
+// Route loading status
+let routesLoaded = false;
+let routesOn = true;
+
+// Show placeholder straight lines until real routes load
+const _southPlaceholder = L.polyline(
+  STOPS.filter(s=>s.type==='wedding'||s.type==='south').map(s=>[s.lat,s.lng]),
+  {color:COLORS.south, weight:1.5, opacity:0.25, dashArray:'4 6'}
+).addTo(map);
+const _northPlaceholder = L.polyline(
+  STOPS.filter(s=>s.type==='north').map(s=>[s.lat,s.lng]),
+  {color:COLORS.north, weight:1.5, opacity:0.25, dashArray:'4 6'}
+).addTo(map);
+
+async function fetchRealRoutes() {
+  const statusEl = document.createElement('div');
+  statusEl.id = 'route-status';
+  statusEl.style.cssText = 'position:absolute;bottom:5rem;left:0.8rem;z-index:1000;background:rgba(28,28,28,0.8);color:#fff;font-size:0.62rem;padding:0.3rem 0.65rem;border-radius:5px;font-family:Outfit,sans-serif;';
+  statusEl.textContent = '⟳ Loading road routes…';
+  document.getElementById('map-wrap').appendChild(statusEl);
+
+  let loaded = 0;
+  for (const seg of ROUTE_SEGS) {
+    const [flng, flat, tlng, tlat, type] = seg;
+    const url = `https://router.project-osrm.org/route/v1/driving/${flng},${flat};${tlng},${tlat}?overview=full&geometries=geojson`;
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.routes && data.routes[0]) {
+        const coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+        const line = L.polyline(coords, {
+          color: COLORS[type],
+          weight: 2.4,
+          opacity: 0.65,
+          dashArray: '6 5',
+        });
+        if (routesOn) line.addTo(map);
+        if (type === 'south') southLines.push(line);
+        else northLines.push(line);
+      }
+    } catch(e) { /* silently skip failed segments */ }
+    loaded++;
+    statusEl.textContent = `⟳ Loading routes… ${loaded}/${ROUTE_SEGS.length}`;
+    await new Promise(r => setTimeout(r, 80));
+  }
+
+  // Remove placeholders, show real routes
+  map.removeLayer(_southPlaceholder);
+  map.removeLayer(_northPlaceholder);
+  routesLoaded = true;
+  statusEl.textContent = '✓ Road routes loaded';
+  setTimeout(() => statusEl.remove(), 2000);
+}
+
+fetchRealRoutes();
+
+function toggleRoutes() {
+  routesOn = !routesOn;
+  [...southLines, ...northLines, flightLine].forEach(l => routesOn ? l.addTo(map) : map.removeLayer(l));
+  if (!routesLoaded) {
+    routesOn ? _southPlaceholder.addTo(map) : map.removeLayer(_southPlaceholder);
+    routesOn ? _northPlaceholder.addTo(map) : map.removeLayer(_northPlaceholder);
+  }
+  document.getElementById('btn-routes').classList.toggle('on', routesOn);
+}
+
+// ── MARKERS ──────────────────────────────────────────────────────
+const mrkrs={};
+const southMrks=[], northMrks=[];
+let southOn=true, northOn=true;
+
+function mkIcon(s) {
+  const big = s.n===1;
+  const sz = big?30:24;
+  const cls = `mk-pin ${s.type}${big?' big':''}`;
+  const html = `<div class="mk-outer"><div class="${cls}" id="pin-${s.n}">${s.n}</div><div class="mk-lbl">${s.short}</div></div>`;
+  return L.divIcon({ html, className:'', iconSize:[70, big?52:46], iconAnchor:[sz/2, big?36:30], popupAnchor:[0,-32] });
+}
+
+STOPS.forEach(s=>{
+  const mk = L.marker([s.lat,s.lng],{icon:mkIcon(s), zIndexOffset:s.n===1?1000:0});
+  const col = COLORS[s.type];
+  const pop = `<div class="pop-bar" style="background:${col}"></div>
+    <div class="pop-body">
+      <h3>${s.name.replace('✈ ','').replace(' 🎂','')}</h3>
+      <div class="pop-dates" style="color:${col}">${s.dates}${s.nights>0?' · '+s.nights+' night'+(s.nights!==1?'s':''):''}</div>
+      ${s.accom?`<div class="pop-accom">🏠 ${s.accom}</div>`:''}
+      <div class="pop-note">${s.note.replace(/\n/g,' ').substring(0,120)}${s.note.length>120?'…':''}</div>
+      <div class="pop-hint">Click for full details →</div>
+    </div>`;
+  mk.bindPopup(pop,{maxWidth:240,className:'nzpop',autoPan:false});
+  mk.on('mouseover',function(){this.openPopup();});
+  mk.on('mouseout', function(){this.closePopup();});
+  mk.on('click',function(){activateStop(s.n);});
+  mk.addTo(map);
+  mrkrs[s.n]=mk;
+  if(s.type==='south'||s.type==='wedding') southMrks.push(mk);
+  if(s.type==='north') northMrks.push(mk);
+});
+
+function toggleLayer(which) {
+  if(which==='south'){
+    southOn=!southOn;
+    southMrks.forEach(m=>southOn?m.addTo(map):map.removeLayer(m));
+    southLines.forEach(l=>southOn?l.addTo(map):map.removeLayer(l));
+    if(!routesLoaded)(southOn?_southPlaceholder.addTo(map):map.removeLayer(_southPlaceholder));
+    document.getElementById('btn-south').classList.toggle('on',southOn);
+  } else {
+    northOn=!northOn;
+    northMrks.forEach(m=>northOn?m.addTo(map):map.removeLayer(m));
+    northLines.forEach(l=>northOn?l.addTo(map):map.removeLayer(l));
+    if(!routesLoaded)(northOn?_northPlaceholder.addTo(map):map.removeLayer(_northPlaceholder));
+    document.getElementById('btn-north').classList.toggle('on',northOn);
+  }
+}
+
+// ── SIDEBAR ──────────────────────────────────────────────────────
+function buildSidebar(q='') {
+  const list=document.getElementById('sidebar-list');
+  list.innerHTML='';
+  const secs=[
+    {key:'wedding',stops:STOPS.filter(s=>s.type==='wedding')},
+    {key:'south',  stops:STOPS.filter(s=>s.type==='south')},
+    {key:'transit',stops:STOPS.filter(s=>s.type==='transit')},
+    {key:'north',  stops:STOPS.filter(s=>s.type==='north')},
+  ];
+  secs.forEach(sec=>{
+    const fl=q?sec.stops.filter(s=>
+      s.name.toLowerCase().includes(q)||
+      s.note.toLowerCase().includes(q)||
+      s.dates.toLowerCase().includes(q)||
+      (s.accom||'').toLowerCase().includes(q)):sec.stops;
+    if(!fl.length) return;
+    const wrap=document.createElement('div');
+    const hd=document.createElement('div');
+    hd.className=`sec-head ${sec.key}`;
+    hd.innerHTML=`<span>${SEC_LABELS[sec.key]}</span><span class="sec-chevron">▾</span>`;
+    const body=document.createElement('div');
+    body.className='sec-body'; body.style.maxHeight='3000px'; body.id='sb-'+sec.key;
+    hd.addEventListener('click',()=>{
+      const c=hd.classList.toggle('collapsed');
+      body.classList.toggle('collapsed',c);
+      if(!c) body.style.maxHeight=(body.scrollHeight+2000)+'px';
+    });
+    fl.forEach(s=>{
+      const card=document.createElement('div');
+      card.className='card'; card.dataset.n=s.n;
+      let tags='';
+      if(s.n===1) tags+=`<span class="ctag w">💍 Wedding</span>`;
+      if(s.dates.includes('🎂')) tags+=`<span class="ctag b">🎂 Birthday</span>`;
+      card.innerHTML=`
+        <div class="badge ${s.type}">${s.n}</div>
+        <div class="ci">
+          <div class="cname">${s.name.replace('✈ ','').replace(' 🎂','')}${tags}</div>
+          <div class="cdates">${s.dates}${s.nights>0?' · '+s.nights+' night'+(s.nights!==1?'s':''):''}</div>
+          <div class="cnote">${s.note.replace(/\n/g,' ')}</div>
+          ${s.accom?`<div class="caccom">🏠 ${s.accom.replace(' (PAID)','')}${s.booked?'<span class="booked-badge">✅</span>':''}</div>`:''}
+        </div>`;
+      card.addEventListener('click',()=>activateStop(s.n));
+      body.appendChild(card);
+    });
+    wrap.appendChild(hd); wrap.appendChild(body); list.appendChild(wrap);
+  });
+}
+
+// ── DETAIL ───────────────────────────────────────────────────────
+function openDetail(s) {
+  document.getElementById('dp-bar').style.background=COLORS[s.type];
+  const booked=s.booked
+    ?'<span class="dp-booked">✅ booked</span>'
+    :'<span class="dp-pending">⏳ pending</span>';
+  document.getElementById('dp-inner').innerHTML=`
+    <div class="dp-num">Stop ${s.n} of ${STOPS.length}</div>
+    <div class="dp-name">${s.name.replace('✈ ','').replace(' 🎂','')}</div>
+    <div class="dp-dates">${s.dates}${s.nights>0?' &nbsp;·&nbsp; '+s.nights+' night'+(s.nights!==1?'s':''):''}</div>
+    ${s.accom?`<div class="dp-sect"><div class="dp-lbl">Accommodation</div><div class="dp-accom-val">🏠 ${s.accom} ${booked}</div></div>`:''}
+    <div class="dp-sect"><div class="dp-lbl">Notes & Activities</div><div class="dp-val">${s.note.replace(/\n/g,'<br>')}</div></div>`;
+  document.getElementById('detail').classList.add('open');
+}
+
+document.getElementById('dp-close').addEventListener('click',()=>{
+  document.getElementById('detail').classList.remove('open');
+  clearActive();
+});
+
+// ── ACTIVATE ─────────────────────────────────────────────────────
+function activateStop(n) {
+  const s=STOPS.find(x=>x.n===n); if(!s) return;
+  document.querySelectorAll('.card').forEach(el=>el.classList.toggle('active',+el.dataset.n===n));
+  const card=document.querySelector(`.card[data-n="${n}"]`);
+  if(card) card.scrollIntoView({behavior:'smooth',block:'nearest'});
+  document.querySelectorAll('.mk-pin').forEach(el=>el.classList.remove('hl'));
+  const pin=document.getElementById(`pin-${n}`);
+  if(pin) pin.classList.add('hl');
+  map.flyTo([s.lat,s.lng],Math.max(map.getZoom(),9),{duration:0.7});
+  openDetail(s);
+}
+function clearActive() {
+  document.querySelectorAll('.card').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.mk-pin').forEach(el=>el.classList.remove('hl'));
+}
+map.on('click',clearActive);
+
+document.getElementById('search').addEventListener('input',function(){
+  buildSidebar(this.value.toLowerCase().trim());
+});
+
+buildSidebar();
+</script>
+</body>
+</html>
