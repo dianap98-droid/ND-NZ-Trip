@@ -90,6 +90,70 @@ html, body { height: 100%; overflow: hidden; font-family: 'Outfit', sans-serif; 
 #map-wrap { flex: 1; position: relative; overflow: hidden; }
 #map { width: 100%; height: 100%; }
 .leaflet-container { font-family: 'Outfit', sans-serif; }
+/* ── SIDEBAR TOGGLE ── */
+#sidebar-toggle {
+  display: none; position: absolute; top: 50%; left: 0;
+  transform: translateY(-50%); z-index: 600;
+  background: #fff; border: 1px solid #ddd; border-left: none;
+  border-radius: 0 8px 8px 0; width: 22px; height: 52px;
+  align-items: center; justify-content: center; cursor: pointer;
+  box-shadow: 3px 0 10px rgba(0,0,0,0.12);
+  transition: left 0.3s cubic-bezier(.4,0,.2,1);
+  flex-direction: column; gap: 3px; padding: 0; color: #888; font-size: 0.65rem;
+}
+#sidebar-toggle.sidebar-open { left: min(88vw, 360px); }
+.tog-arrow { transition: transform 0.3s; line-height: 1; display: block; }
+#sidebar-toggle.sidebar-open .tog-arrow { transform: rotate(180deg); }
+/* ── MOBILE ── */
+@media (max-width: 700px) {
+  #header { height: auto; padding: 0.55rem 1rem; flex-wrap: wrap; gap: 0.4rem; }
+  .h-legend { display: none; }
+  .h-stats { gap: 0.8rem; }
+  #app { flex-direction: column; height: calc(100vh - 48px); position: relative; }
+  #sidebar {
+    position: absolute; top: 0; left: 0; bottom: 0;
+    width: min(88vw, 360px); z-index: 700;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(.4,0,.2,1);
+    box-shadow: 4px 0 24px rgba(0,0,0,0.2);
+    min-width: unset;
+  }
+  #sidebar.mob-open { transform: translateX(0); }
+  #mob-overlay {
+    display: none; position: absolute; inset: 0;
+    background: rgba(0,0,0,0.38); z-index: 650;
+  }
+  #mob-overlay.show { display: block; }
+  #map-wrap { flex: 1; width: 100%; }
+  #sidebar-toggle { display: flex; }
+  #detail {
+    position: absolute; left: 0; right: 0; bottom: 0; top: auto;
+    width: 100%; height: auto; max-height: 68vh;
+    border-left: none; border-top: 1px solid #e0ddd8;
+    border-radius: 18px 18px 0 0;
+    box-shadow: 0 -8px 32px rgba(0,0,0,0.15);
+    transform: translateY(100%);
+    transition: transform 0.28s cubic-bezier(.4,0,.2,1);
+    overflow-y: auto; z-index: 700;
+  }
+  #detail.open { transform: translateY(0); }
+  #detail::before {
+    content: ''; display: block; width: 36px; height: 4px;
+    background: #ddd; border-radius: 2px; margin: 10px auto 0;
+  }
+  .dp-bar { margin-top: 6px; }
+  .dp-close { top: 1.6rem; }
+  #layer-ctrl {
+    bottom: auto; top: 0.6rem; left: auto; right: 0.6rem;
+    flex-direction: row; flex-wrap: wrap; justify-content: flex-end; max-width: 210px;
+  }
+  .ltbtn { font-size: 0.58rem; padding: 0.25rem 0.45rem; }
+  .card { padding: 0.75rem 0.9rem; }
+  .cname { font-size: 0.88rem; }
+  .cnote { font-size: 0.72rem; }
+  .mk-pin { width: 28px !important; height: 28px !important; font-size: 0.68rem !important; }
+  .mk-pin.big { width: 34px !important; height: 34px !important; }
+}
 /* Marker styles */
 .mk-outer { display: flex; flex-direction: column; align-items: center; }
 .mk-pin {
@@ -192,7 +256,11 @@ html, body { height: 100%; overflow: hidden; font-family: 'Outfit', sans-serif; 
     </div>
     <div id="sidebar-list"></div>
   </div>
+  <div id="mob-overlay"></div>
   <div id="map-wrap">
+    <button id="sidebar-toggle" aria-label="Toggle sidebar">
+      <span class="tog-arrow">‹</span>
+    </button>
     <div id="map"></div>
     <div id="detail">
       <div class="dp-bar" id="dp-bar"></div>
@@ -211,6 +279,154 @@ html, body { height: 100%; overflow: hidden; font-family: 'Outfit', sans-serif; 
 const COLORS = { wedding:'#b83a3a', south:'#2e6e5e', north:'#5a3a7e', transit:'#2a5070' };
 const SEC_LABELS = { wedding:'Wedding & Queenstown', south:'South Island', transit:'Transit / Flights', north:'North Island' };
 
+// ── GOOGLE SHEET CONFIG ───────────────────────────────────────────
+// The map reads your live Google Sheet on every load.
+// To update the map: just edit the Google Sheet — no code needed!
+const SHEET_ID = "1zncGyQcktACLKglDwekUqF2EjwmTXAVJZDnn8GCX8Ow";
+const SHEET_CSV = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=0`;
+
+// ── COORDINATES + METADATA (fixed — not in sheet) ────────────────
+// Keyed by the "Overnight" value from the sheet
+const STOP_META = {
+  "Queenstown":              { n:1,  lat:-45.031, lng:168.663, short:"Queenstown",        type:"wedding" },
+  "Manapouri":               { n:2,  lat:-45.568, lng:167.616, short:"Manapouri",          type:"south"   },
+  "Doubtful Sound":          { n:3,  lat:-45.430, lng:167.107, short:"Doubtful Sound",     type:"south"   },
+  "Te Anau accommodation":   { n:4,  lat:-45.415, lng:167.719, short:"Te Anau",            type:"south"   },
+  "The Catlins - Slope Point/Curio Bay": { n:5, lat:-46.683, lng:169.133, short:"Curio Bay",  type:"south" },
+  "The Catlins - Kaka Point":{ n:6,  lat:-46.356, lng:169.838, short:"Kaka Point",         type:"south"   },
+  "Dunedin":                 { n:7,  lat:-45.879, lng:170.504, short:"Dunedin",             type:"south"   },
+  "Aoraki/Mt Cook- Twizel":  { n:8,  lat:-44.259, lng:170.104, short:"Twizel / Mt Cook",   type:"south"   },
+  "Lake Tekapo":             { n:9,  lat:-44.004, lng:170.483, short:"Lake Tekapo",         type:"south"   },
+  "Christchurch":            { n:10, lat:-43.533, lng:172.634, short:"Christchurch",        type:"south"   },
+  "Kaikōura":                { n:11, lat:-42.399, lng:173.681, short:"Kaikōura",            type:"south"   },
+  "Blenheim/Picton":         { n:12, lat:-41.513, lng:173.961, short:"Blenheim",            type:"south"   },
+  "Kaiteriteri - Abel Tasman":{ n:13, lat:-40.993, lng:172.999, short:"Kaiteriteri",        type:"south"   },
+  "Hokitika":                { n:14, lat:-42.716, lng:170.975, short:"Hokitika",            type:"south"   },
+  "Franz Josef/Fox":         { n:15, lat:-43.388, lng:170.183, short:"Franz Josef/Fox",     type:"south"   },
+  "Wānaka":                  { n:16, lat:-44.701, lng:169.132, short:"Wānaka",              type:"south"   },
+  "Auckland":                { n:17, lat:-45.021, lng:168.741, short:"Flight → AKL",        type:"transit", isFlightStop:true },
+  "Coromandel":              { n:18, lat:-36.758, lng:175.491, short:"Coromandel",          type:"north"   },
+  "Rotorua":                 { n:19, lat:-38.137, lng:176.252, short:"Rotorua",             type:"north"   },
+  "Taupō":                   { n:20, lat:-38.685, lng:176.070, short:"Taupō",               type:"north"   },
+  "Auckland area - practical":{ n:21, lat:-36.952, lng:174.756, short:"Auckland",           type:"north"   },
+  "Paihia":                  { n:22, lat:-35.281, lng:174.091, short:"Bay of Islands",      type:"north"   },
+  "Kai Iwi Lakes or around Mangawhai":{ n:23, lat:-36.132, lng:174.579, short:"Mangawhai",  type:"north"   },
+  "Mangawhai":               { n:23, lat:-36.132, lng:174.579, short:"Mangawhai",           type:"north"   },
+  "Auckland ":               { n:24, lat:-36.848, lng:174.763, short:"Auckland",            type:"north"   },
+};
+
+// STOPS is declared below as const with fallback data.
+// init() replaces its contents from the Google Sheet on load.
+
+// ── CSV PARSER ────────────────────────────────────────────────────
+function parseCSV(text) {
+  const rows = [];
+  let cur = '', inQ = false, row = [];
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (c === '"') {
+      if (inQ && text[i+1] === '"') { cur += '"'; i++; }
+      else inQ = !inQ;
+    } else if (c === ',' && !inQ) { row.push(cur.trim()); cur = ''; }
+    else if ((c === '\n' || c === '\r') && !inQ) {
+      if (c === '\r' && text[i+1] === '\n') i++;
+      row.push(cur.trim()); rows.push(row); row = []; cur = '';
+    } else cur += c;
+  }
+  if (cur || row.length) { row.push(cur.trim()); rows.push(row); }
+  return rows;
+}
+
+// ── DATE FORMATTER ────────────────────────────────────────────────
+function fmtDate(d) {
+  if (!d) return '';
+  // "10 August 2026" → "Aug 10"
+  const m = d.match(/(\d+)\s+(\w+)\s+(\d+)/);
+  if (!m) return d;
+  const months = {January:'Jan',February:'Feb',March:'Mar',April:'Apr',May:'May',June:'Jun',
+    July:'Jul',August:'Aug',September:'Sep',October:'Oct',November:'Nov',December:'Dec'};
+  return `${months[m[2]]||m[2]} ${m[1]}`;
+}
+
+// ── BUILD STOPS FROM SHEET ────────────────────────────────────────
+function buildStopsFromCSV(rows) {
+  // header row: Dates, Notes, Overnight, Accommodations (Link), Cancel By Date, Food Recommendations
+  const stops = [];
+  const seen = {}; // overnight → stop (for merging consecutive same-location days)
+
+  for (let i = 1; i < rows.length; i++) {
+    const [dateStr, notes, overnight, accom, cancelBy, food] = rows[i];
+    if (!overnight || overnight.trim() === '') continue;
+    const key = overnight.trim();
+
+    // Find matching meta
+    let meta = STOP_META[key];
+    // Fuzzy match if exact not found
+    if (!meta) {
+      const k = Object.keys(STOP_META).find(k => key.toLowerCase().includes(k.toLowerCase()) || k.toLowerCase().includes(key.toLowerCase()));
+      if (k) meta = STOP_META[k];
+    }
+    if (!meta) continue; // skip rows we can't geo-locate
+
+    const date = fmtDate(dateStr);
+
+    if (seen[key]) {
+      // Extend existing stop
+      const s = seen[key];
+      s.nights++;
+      s.dates = s.dates.split('–')[0] + '–' + date;
+      if (notes && notes.trim()) s.note += (s.note ? '\n' : '') + notes.trim();
+      if (accom && accom.trim() && !s.accom) s.accom = accom.trim();
+      if (food && food.trim()) s.food = (s.food ? s.food + ', ' : '') + food.trim();
+    } else {
+      const s = {
+        ...meta,
+        name: key,
+        dates: date,
+        nights: 1,
+        note: notes ? notes.trim() : '',
+        accom: accom ? accom.replace(/\n/g,' ').trim() : '',
+        food: food ? food.trim() : '',
+        cancelBy: cancelBy ? cancelBy.trim() : '',
+        booked: accom && (accom.includes('PAID') || accom.includes('✅') || accom.includes('Booked')),
+      };
+      if (s.food) s.note += (s.note ? '\n' : '') + '🍽 Food: ' + s.food;
+      seen[key] = s;
+      stops.push(s);
+    }
+  }
+
+  // Sort by stop number
+  stops.sort((a, b) => a.n - b.n);
+  return stops;
+}
+
+// ── LOADING OVERLAY ───────────────────────────────────────────────
+function showLoadingOverlay(msg) {
+  let el = document.getElementById('sheet-loading');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'sheet-loading';
+    el.style.cssText = `position:fixed;inset:0;background:var(--cream);z-index:9999;
+      display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.8rem;`;
+    el.innerHTML = `
+      <div style="font-family:'Cormorant Garamond',serif;font-size:1.4rem;color:var(--ink)">Diana &amp; <em style="color:var(--gold);font-style:italic">Nikita</em></div>
+      <div id="sheet-loading-msg" style="font-size:0.72rem;color:#888;letter-spacing:0.08em"></div>
+      <div style="display:flex;gap:5px">
+        ${[0,1,2].map(i=>`<div style="width:7px;height:7px;border-radius:50%;background:var(--south);animation:blink 1.2s ${i*0.2}s infinite ease-in-out"></div>`).join('')}
+      </div>
+      <style>@keyframes blink{0%,80%,100%{opacity:.2}40%{opacity:1}}</style>`;
+    document.body.appendChild(el);
+  }
+  document.getElementById('sheet-loading-msg').textContent = msg;
+}
+function hideLoadingOverlay() {
+  const el = document.getElementById('sheet-loading');
+  if (el) { el.style.opacity='0'; el.style.transition='opacity 0.4s'; setTimeout(()=>el.remove(),400); }
+}
+
+// Fallback data (used if Google Sheet fetch fails) — also serves as the live STOPS array
+// updated by init() on every page load
 const STOPS = [
   {n:1,  name:"Queenstown",              short:"Queenstown",       type:"wedding", lat:-45.031, lng:168.663, dates:"Aug 11–19",    nights:9,  booked:true,
    accom:"STAY of Queenstown – Milford Suite",
@@ -303,6 +519,29 @@ L.control.layers({
   '🛰 Satellite': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom:18, attribution:'© Esri' }),
 }, {}, { position:'topright' }).addTo(map);
 
+// ── ASYNC INIT ────────────────────────────────────────────────────
+async function init() {
+  showLoadingOverlay('Fetching itinerary from Google Sheets…');
+  try {
+    const res = await fetch(SHEET_CSV);
+    const text = await res.text();
+    const rows = parseCSV(text);
+    const fresh = buildStopsFromCSV(rows);
+    if (fresh.length > 0) {
+      STOPS.length = 0;
+      fresh.forEach(s => STOPS.push(s));
+    }
+    showLoadingOverlay('Building map…');
+  } catch(e) {
+    console.warn('Sheet fetch failed, using built-in data:', e);
+  }
+  buildSidebar();
+  drawRoutes();
+  drawMarkers();
+  hideLoadingOverlay();
+  fetchRealRoutes();
+}
+
 // ── ROUTES — real roads via OSRM ─────────────────────────────────
 // Each entry: [from_lng, from_lat, to_lng, to_lat, 'type']
 const ROUTE_SEGS = [
@@ -332,26 +571,72 @@ const ROUTE_SEGS = [
   [174.579,-36.132, 174.763,-36.848, 'north'],  // Mangawhai → Auckland
 ];
 
-// Flight arc QTown → Auckland
-const flightPts = [[STOPS[16].lat,STOPS[16].lng],[STOPS[17].lat,STOPS[17].lng]];
+// Flight arc QTown → Auckland — computed dynamically
+let flightLine = null;
 
 // Polyline groups — start empty, filled after OSRM fetch
 const southLines = [], northLines = [];
-const flightLine = L.polyline(flightPts, {color:COLORS.transit, weight:1.8, opacity:0.4, dashArray:'4 9'}).addTo(map);
 
 // Route loading status
 let routesLoaded = false;
 let routesOn = true;
+let _southPlaceholder = null, _northPlaceholder = null;
 
-// Show placeholder straight lines until real routes load
-const _southPlaceholder = L.polyline(
-  STOPS.filter(s=>s.type==='wedding'||s.type==='south').map(s=>[s.lat,s.lng]),
-  {color:COLORS.south, weight:1.5, opacity:0.25, dashArray:'4 6'}
-).addTo(map);
-const _northPlaceholder = L.polyline(
-  STOPS.filter(s=>s.type==='north').map(s=>[s.lat,s.lng]),
-  {color:COLORS.north, weight:1.5, opacity:0.25, dashArray:'4 6'}
-).addTo(map);
+function drawRoutes() {
+  const flightStop = STOPS.find(s=>s.type==='transit');
+  const nextStop   = STOPS.find(s=>s.type==='north');
+  if (flightStop && nextStop) {
+    flightLine = L.polyline([[flightStop.lat,flightStop.lng],[nextStop.lat,nextStop.lng]],
+      {color:COLORS.transit, weight:1.8, opacity:0.4, dashArray:'4 9'}).addTo(map);
+  }
+  _southPlaceholder = L.polyline(
+    STOPS.filter(s=>s.type==='wedding'||s.type==='south').map(s=>[s.lat,s.lng]),
+    {color:COLORS.south, weight:1.5, opacity:0.25, dashArray:'4 6'}
+  ).addTo(map);
+  _northPlaceholder = L.polyline(
+    STOPS.filter(s=>s.type==='north').map(s=>[s.lat,s.lng]),
+    {color:COLORS.north, weight:1.5, opacity:0.25, dashArray:'4 6'}
+  ).addTo(map);
+} // end drawRoutes()
+
+// ── MARKERS ───────────────────────────────────────────────────────
+const mrkrs={};
+const southMrks=[], northMrks=[];
+let southOn=true, northOn=true;
+
+function mkIcon(s) {
+  const big = s.n===1;
+  const sz = big?30:24;
+  const cls = `mk-pin ${s.type}${big?' big':''}`;
+  const html = `<div class="mk-outer"><div class="${cls}" id="pin-${s.n}">${s.n}</div><div class="mk-lbl">${s.short}</div></div>`;
+  return L.divIcon({ html, className:'', iconSize:[70, big?52:46], iconAnchor:[sz/2, big?36:30], popupAnchor:[0,-32] });
+}
+
+function drawMarkers() {
+  Object.values(mrkrs).forEach(m => map.removeLayer(m));
+  Object.keys(mrkrs).forEach(k => delete mrkrs[k]);
+  southMrks.length = 0; northMrks.length = 0;
+  STOPS.forEach(s=>{
+    const mk = L.marker([s.lat,s.lng],{icon:mkIcon(s), zIndexOffset:s.n===1?1000:0});
+    const col = COLORS[s.type];
+    const pop = `<div class="pop-bar" style="background:${col}"></div>
+      <div class="pop-body">
+        <h3>${s.name.replace('✈ ','').replace(' 🎂','')}</h3>
+        <div class="pop-dates" style="color:${col}">${s.dates}${s.nights>0?' · '+s.nights+' night'+(s.nights!==1?'s':''):''}</div>
+        ${s.accom?`<div class="pop-accom">🏠 ${s.accom}</div>`:''}
+        <div class="pop-note">${s.note.replace(/\n/g,' ').substring(0,120)}${s.note.length>120?'…':''}</div>
+        <div class="pop-hint">Click for full details →</div>
+      </div>`;
+    mk.bindPopup(pop,{maxWidth:240,className:'nzpop',autoPan:false});
+    mk.on('mouseover',function(){this.openPopup();});
+    mk.on('mouseout', function(){this.closePopup();});
+    mk.on('click',function(){activateStop(s.n);});
+    mk.addTo(map);
+    mrkrs[s.n]=mk;
+    if(s.type==='south'||s.type==='wedding') southMrks.push(mk);
+    if(s.type==='north') northMrks.push(mk);
+  });
+} // end drawMarkers()
 
 async function fetchRealRoutes() {
   const statusEl = document.createElement('div');
@@ -397,47 +682,14 @@ fetchRealRoutes();
 
 function toggleRoutes() {
   routesOn = !routesOn;
-  [...southLines, ...northLines, flightLine].forEach(l => routesOn ? l.addTo(map) : map.removeLayer(l));
+  [...southLines, ...northLines].forEach(l => routesOn ? l.addTo(map) : map.removeLayer(l));
+  if (flightLine) routesOn ? flightLine.addTo(map) : map.removeLayer(flightLine);
   if (!routesLoaded) {
-    routesOn ? _southPlaceholder.addTo(map) : map.removeLayer(_southPlaceholder);
-    routesOn ? _northPlaceholder.addTo(map) : map.removeLayer(_northPlaceholder);
+    if(_southPlaceholder) routesOn ? _southPlaceholder.addTo(map) : map.removeLayer(_southPlaceholder);
+    if(_northPlaceholder) routesOn ? _northPlaceholder.addTo(map) : map.removeLayer(_northPlaceholder);
   }
   document.getElementById('btn-routes').classList.toggle('on', routesOn);
 }
-
-// ── MARKERS ──────────────────────────────────────────────────────
-const mrkrs={};
-const southMrks=[], northMrks=[];
-let southOn=true, northOn=true;
-
-function mkIcon(s) {
-  const big = s.n===1;
-  const sz = big?30:24;
-  const cls = `mk-pin ${s.type}${big?' big':''}`;
-  const html = `<div class="mk-outer"><div class="${cls}" id="pin-${s.n}">${s.n}</div><div class="mk-lbl">${s.short}</div></div>`;
-  return L.divIcon({ html, className:'', iconSize:[70, big?52:46], iconAnchor:[sz/2, big?36:30], popupAnchor:[0,-32] });
-}
-
-STOPS.forEach(s=>{
-  const mk = L.marker([s.lat,s.lng],{icon:mkIcon(s), zIndexOffset:s.n===1?1000:0});
-  const col = COLORS[s.type];
-  const pop = `<div class="pop-bar" style="background:${col}"></div>
-    <div class="pop-body">
-      <h3>${s.name.replace('✈ ','').replace(' 🎂','')}</h3>
-      <div class="pop-dates" style="color:${col}">${s.dates}${s.nights>0?' · '+s.nights+' night'+(s.nights!==1?'s':''):''}</div>
-      ${s.accom?`<div class="pop-accom">🏠 ${s.accom}</div>`:''}
-      <div class="pop-note">${s.note.replace(/\n/g,' ').substring(0,120)}${s.note.length>120?'…':''}</div>
-      <div class="pop-hint">Click for full details →</div>
-    </div>`;
-  mk.bindPopup(pop,{maxWidth:240,className:'nzpop',autoPan:false});
-  mk.on('mouseover',function(){this.openPopup();});
-  mk.on('mouseout', function(){this.closePopup();});
-  mk.on('click',function(){activateStop(s.n);});
-  mk.addTo(map);
-  mrkrs[s.n]=mk;
-  if(s.type==='south'||s.type==='wedding') southMrks.push(mk);
-  if(s.type==='north') northMrks.push(mk);
-});
 
 function toggleLayer(which) {
   if(which==='south'){
@@ -535,6 +787,8 @@ function activateStop(n) {
   if(pin) pin.classList.add('hl');
   map.flyTo([s.lat,s.lng],Math.max(map.getZoom(),9),{duration:0.7});
   openDetail(s);
+  // On mobile: close sidebar so map is visible after selecting a stop
+  if(isMobile()) closeSidebar();
 }
 function clearActive() {
   document.querySelectorAll('.card').forEach(el=>el.classList.remove('active'));
@@ -546,7 +800,33 @@ document.getElementById('search').addEventListener('input',function(){
   buildSidebar(this.value.toLowerCase().trim());
 });
 
-buildSidebar();
+// ── MOBILE SIDEBAR TOGGLE ─────────────────────────────────────────
+const togBtn     = document.getElementById('sidebar-toggle');
+const sidebar    = document.getElementById('sidebar');
+const mobOverlay = document.getElementById('mob-overlay');
+
+function isMobile() { return window.innerWidth <= 700; }
+
+function openSidebar() {
+  sidebar.classList.add('mob-open');
+  mobOverlay.classList.add('show');
+  togBtn.classList.add('sidebar-open');
+}
+function closeSidebar() {
+  sidebar.classList.remove('mob-open');
+  mobOverlay.classList.remove('show');
+  togBtn.classList.remove('sidebar-open');
+}
+function toggleSidebar() {
+  sidebar.classList.contains('mob-open') ? closeSidebar() : openSidebar();
+}
+
+togBtn.addEventListener('click', e => { e.stopPropagation(); toggleSidebar(); });
+mobOverlay.addEventListener('click', closeSidebar);
+
+// ── BOOT ─────────────────────────────────────────────────────────
+// Fetches live data from Google Sheet, then builds the map
+init();
 </script>
 </body>
 </html>
