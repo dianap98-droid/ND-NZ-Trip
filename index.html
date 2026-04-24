@@ -439,8 +439,9 @@ const COORDS = {
   'taupo':                  [176.0702, -38.6857, 'north'],
   'paihia':                 [174.0879, -35.2792, 'north'],
   'bay of islands':         [174.0879, -35.2792, 'north'],
-  'kai iwi':                [174.06,   -36.1,    'north'],
+  'kai iwi':                [173.84,   -35.87,   'north'],
   'mangawhai':              [174.57,   -36.13,   'north'],
+  'coromandel- hahei':      [175.78,   -36.87,   'north'],
 };
 
 function lookupCoords(overnight) {
@@ -701,10 +702,12 @@ async function renderRoutes() {
 
   if (saLine) L.polyline(saLine, driveOpts(TC.south)).addTo(routeLayer);
 
-  if (sa.length && na.length) {
-    const from = [sa[sa.length - 1].lat, sa[sa.length - 1].lon];
-    const to   = [na[0].lat, na[0].lon];
-    L.polyline(arcPoints(from, to), flightOpts).addTo(routeLayer);
+  if (na.length) {
+    const transitNZ = stops.find(s => s.type === 'transit' && isNZ(s));
+    const arcFrom   = transitNZ || sa[sa.length - 1];
+    if (arcFrom) {
+      L.polyline(arcPoints([arcFrom.lat, arcFrom.lon], [na[0].lat, na[0].lon]), flightOpts).addTo(routeLayer);
+    }
   }
 
   if (naLine) L.polyline(naLine, driveOpts(TC.north)).addTo(routeLayer);
