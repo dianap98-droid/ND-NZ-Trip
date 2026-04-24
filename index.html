@@ -2,164 +2,263 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Diana & Nikita – New Zealand 2026</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
 :root {
   --cream: #f5f0e8; --ink: #1a1a1a; --gold: #c9a84c; --gold-light: #e8d5a0;
   --south: #4a7c6f; --north: #7c4a6f; --wedding: #c94a4a; --transit: #4a6f7c;
-  --sea: #cce0ec; --land: #daebd5; --land-stroke: #a8c9a0;
+  --sidebar-w: 300px;
 }
-body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--ink); min-height: 100vh; overflow: hidden; }
 
-/* HEADER */
-header { background: var(--ink); color: var(--cream); padding: 1.2rem 2rem; display: flex; align-items: center; justify-content: space-between; border-bottom: 3px solid var(--gold); }
-header h1 { font-family: 'Playfair Display', serif; font-size: 1.8rem; line-height: 1; }
+html, body { height: 100%; overflow: hidden; }
+body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--ink); display: flex; flex-direction: column; }
+
+/* ── HEADER ── */
+header {
+  background: var(--ink); color: var(--cream);
+  padding: 0 1.5rem; height: 66px;
+  display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 3px solid var(--gold); flex-shrink: 0; z-index: 1000;
+}
+header h1 { font-family: 'Playfair Display', serif; font-size: 1.6rem; line-height: 1.1; }
 header h1 span { color: var(--gold); font-style: italic; }
-.header-sub { font-size: 0.78rem; opacity: 0.6; letter-spacing: 0.08em; text-transform: uppercase; margin-top: 0.2rem; }
-.header-right { text-align: right; }
-.header-tagline { color: var(--gold); font-family: 'Playfair Display', serif; font-style: italic; font-size: 0.9rem; }
-.header-hint { font-size: 0.72rem; opacity: 0.55; margin-top: 0.2rem; }
+.header-sub { font-size: 0.7rem; opacity: 0.55; letter-spacing: 0.08em; text-transform: uppercase; margin-top: 0.15rem; }
+.header-tagline { color: var(--gold); font-family: 'Playfair Display', serif; font-style: italic; font-size: 0.88rem; }
+.header-hint { font-size: 0.68rem; opacity: 0.5; margin-top: 0.1rem; text-align: right; }
 
-/* LEGEND */
-.legend { display: flex; gap: 1.2rem; padding: 0.55rem 2rem; background: var(--ink); border-bottom: 1px solid #333; flex-wrap: wrap; }
-.legend-item { display: flex; align-items: center; gap: 0.4rem; color: var(--cream); font-size: 0.74rem; }
-.legend-dot { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.2); flex-shrink: 0; }
+#hamburger {
+  display: none; background: none; border: 1.5px solid rgba(255,255,255,0.3);
+  border-radius: 5px; color: var(--cream); font-size: 1.1rem;
+  padding: 0.35rem 0.5rem; cursor: pointer; line-height: 1; flex-shrink: 0;
+}
 
-/* LAYOUT */
-.layout { display: grid; grid-template-columns: 300px 1fr; height: calc(100vh - 95px); }
+/* ── LEGEND ── */
+.legend {
+  height: 36px; display: flex; gap: 1rem; padding: 0 1.5rem;
+  background: var(--ink); border-bottom: 1px solid #2a2a2a;
+  align-items: center; flex-shrink: 0; overflow-x: auto; flex-wrap: nowrap;
+}
+.legend::-webkit-scrollbar { height: 0; }
+.legend-item { display: flex; align-items: center; gap: 0.35rem; color: var(--cream); font-size: 0.72rem; white-space: nowrap; }
+.legend-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
 
-/* SIDEBAR */
-.sidebar { background: #fff; border-right: 1px solid #e0e0e0; overflow-y: auto; }
-.sidebar::-webkit-scrollbar { width: 3px; }
-.sidebar::-webkit-scrollbar-thumb { background: var(--gold-light); border-radius: 2px; }
+/* ── MAIN LAYOUT ── */
+#app { flex: 1; display: flex; overflow: hidden; position: relative; min-height: 0; }
 
-.sec-head { position: sticky; top: 0; z-index: 5; padding: 0.5rem 0.9rem; font-size: 0.65rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; }
+/* ── SIDEBAR ── */
+#sidebar {
+  width: var(--sidebar-w); min-width: var(--sidebar-w);
+  background: #fff; border-right: 1px solid #e8e8e8;
+  overflow-y: auto; overflow-x: hidden;
+  flex-shrink: 0; z-index: 100;
+  transition: width 0.28s ease, min-width 0.28s ease;
+}
+#sidebar.collapsed { width: 0; min-width: 0; }
+#sidebar::-webkit-scrollbar { width: 3px; }
+#sidebar::-webkit-scrollbar-thumb { background: var(--gold-light); border-radius: 2px; }
+
+.sidebar-inner { width: var(--sidebar-w); }
+
+.sec-head {
+  position: sticky; top: 0; z-index: 5;
+  padding: 0.45rem 0.9rem; font-size: 0.63rem; font-weight: 600;
+  letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap;
+}
 .sec-head.wedding { background: var(--wedding); color: #fff; }
 .sec-head.south   { background: var(--south);   color: #fff; }
-.sec-head.transit { background: var(--transit); color: #fff; }
-.sec-head.north   { background: var(--north);   color: #fff; }
+.sec-head.transit { background: var(--transit);  color: #fff; }
+.sec-head.north   { background: var(--north);    color: #fff; }
 
-.stop-card { padding: 0.65rem 0.9rem; border-bottom: 1px solid #f2f2f2; cursor: pointer; display: flex; gap: 0.6rem; align-items: flex-start; transition: background 0.1s; }
+.stop-card {
+  padding: 0.6rem 0.9rem; border-bottom: 1px solid #f2f2f2;
+  cursor: pointer; display: flex; gap: 0.6rem; align-items: flex-start;
+  transition: background 0.1s; overflow: hidden;
+}
 .stop-card:hover  { background: #fafaf5; }
 .stop-card.active { background: #f2ece0; }
 
-.snum { min-width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.68rem; font-weight: 700; color: #fff; flex-shrink: 0; margin-top: 1px; }
+.snum {
+  min-width: 24px; height: 24px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.65rem; font-weight: 700; color: #fff; flex-shrink: 0; margin-top: 2px;
+}
 .snum.wedding { background: var(--wedding); }
-.snum.south   { background: var(--south); }
-.snum.north   { background: var(--north); }
+.snum.south   { background: var(--south);   }
+.snum.north   { background: var(--north);   }
 .snum.transit { background: var(--transit); }
 
 .sinfo { flex: 1; min-width: 0; }
-.sname  { font-weight: 500; font-size: 0.84rem; }
-.sdates { font-size: 0.7rem; color: #999; margin: 0.1rem 0; }
-.snote  { font-size: 0.72rem; color: #666; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.wtag   { display: inline-block; background: var(--wedding); color: #fff; font-size: 0.55rem; padding: 1px 4px; border-radius: 2px; letter-spacing: 0.04em; text-transform: uppercase; margin-left: 4px; vertical-align: middle; }
+.sname  { font-weight: 500; font-size: 0.83rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sdates { font-size: 0.68rem; color: #999; margin: 0.1rem 0; }
+.snote  { font-size: 0.7rem; color: #666; line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.saccom { font-size: 0.66rem; color: #b07d2a; margin: 0.1rem 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wtag   { display: inline-block; background: var(--wedding); color: #fff; font-size: 0.52rem; padding: 1px 4px; border-radius: 2px; letter-spacing: 0.04em; text-transform: uppercase; margin-left: 4px; vertical-align: middle; }
 
-/* MAP */
-#map-wrap { position: relative; background: var(--sea); overflow: hidden; }
-#map-svg  { width: 100%; height: 100%; display: block; }
-.nz-land  { fill: var(--land); stroke: var(--land-stroke); stroke-width: 0.7; }
-.route-line   { fill: none; stroke-width: 1.8; stroke-dasharray: 5 4; opacity: 0.7; pointer-events: none; }
-.route-south  { stroke: var(--south); }
-.route-north  { stroke: var(--north); }
-.route-flight { stroke: var(--transit); stroke-dasharray: 3 7; stroke-width: 1.4; opacity: 0.6; }
+/* ── SIDEBAR TOGGLE (desktop) ── */
+#sidebar-toggle {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  left: var(--sidebar-w); z-index: 200;
+  background: var(--ink); color: var(--cream); border: none;
+  width: 20px; height: 44px; border-radius: 0 6px 6px 0;
+  cursor: pointer; font-size: 0.6rem; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 2px 0 8px rgba(0,0,0,0.18);
+  transition: left 0.28s ease;
+}
+#sidebar-toggle:hover { background: #333; }
 
-/* TOOLTIP */
-#tip { position: absolute; background: var(--ink); color: var(--cream); padding: 0.8rem 1rem; border-radius: 7px; max-width: 230px; pointer-events: none; display: none; z-index: 500; box-shadow: 0 5px 20px rgba(0,0,0,0.3); border-left: 3px solid var(--gold); font-size: 0.8rem; line-height: 1.45; }
-#tip h3 { font-family: 'Playfair Display', serif; font-size: 0.92rem; margin-bottom: 0.15rem; }
-#tip .td { font-size: 0.65rem; color: var(--gold); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 0.35rem; }
-#tip .th { margin-top: 0.35rem; font-size: 0.62rem; opacity: 0.45; }
+/* ── MAP ── */
+#map-wrap { flex: 1; position: relative; z-index: 1; min-width: 0; }
+#map-leaflet { width: 100%; height: 100%; }
 
-/* ADD BUTTON */
-.add-btn { position: absolute; bottom: 1rem; right: 1rem; background: var(--gold); color: var(--ink); border: none; border-radius: 40px; padding: 0.6rem 1.2rem; font-family: 'DM Sans', sans-serif; font-weight: 600; font-size: 0.82rem; cursor: pointer; box-shadow: 0 3px 14px rgba(0,0,0,0.18); z-index: 50; transition: transform 0.15s; }
+/* ── CUSTOM MARKERS ── */
+.mk {
+  border-radius: 50%; border: 2.5px solid #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'DM Sans', sans-serif; font-weight: 700; color: #fff;
+  box-shadow: 0 2px 7px rgba(0,0,0,0.45);
+  transition: transform 0.12s;
+  cursor: pointer;
+}
+.mk.active { box-shadow: 0 0 0 3px var(--gold), 0 2px 8px rgba(0,0,0,0.5); }
+.leaflet-marker-icon:hover .mk { transform: scale(1.2); }
+
+/* ── TOOLTIP ── */
+#tip {
+  position: absolute; background: var(--ink); color: var(--cream);
+  padding: 0.8rem 1rem; border-radius: 7px; max-width: 240px;
+  pointer-events: none; display: none; z-index: 600;
+  box-shadow: 0 5px 20px rgba(0,0,0,0.3); border-left: 3px solid var(--gold);
+  font-size: 0.79rem; line-height: 1.45;
+}
+#tip h3 { font-family: 'Playfair Display', serif; font-size: 0.9rem; margin-bottom: 0.12rem; }
+#tip .td { font-size: 0.63rem; color: var(--gold); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 0.3rem; }
+#tip .th { margin-top: 0.3rem; font-size: 0.6rem; opacity: 0.4; }
+
+/* ── LAYER SWITCHER ── */
+.layer-switcher {
+  display: flex; flex-direction: column; gap: 3px;
+  background: rgba(255,255,255,0.96); border-radius: 8px;
+  padding: 5px; box-shadow: 0 2px 10px rgba(0,0,0,0.18);
+}
+.lbtn {
+  background: transparent; border: 1.5px solid #ddd; border-radius: 5px;
+  padding: 0.28rem 0.65rem; font-size: 0.68rem;
+  font-family: 'DM Sans', sans-serif; cursor: pointer;
+  color: var(--ink); transition: all 0.15s; white-space: nowrap; text-align: left;
+}
+.lbtn:hover { border-color: var(--gold); }
+.lbtn.active { background: var(--ink); color: var(--cream); border-color: var(--ink); }
+
+/* ── ROUTE LEGEND ── */
+#route-legend {
+  position: absolute; bottom: 2.4rem; left: 0.8rem; z-index: 500;
+  background: rgba(255,255,255,0.96); border-radius: 7px;
+  padding: 0.55rem 0.75rem; box-shadow: 0 2px 8px rgba(0,0,0,0.13);
+  font-size: 0.69rem;
+}
+.rl-item { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem; }
+.rl-item:last-child { margin-bottom: 0; }
+.rl-line { width: 28px; height: 3px; border-radius: 2px; }
+.rl-dashed { background: repeating-linear-gradient(90deg, var(--transit) 0, var(--transit) 6px, transparent 6px, transparent 12px); height: 2px; }
+
+/* ── ADD BUTTON ── */
+.add-btn {
+  position: absolute; bottom: 0.8rem; right: 0.8rem;
+  background: var(--gold); color: var(--ink); border: none;
+  border-radius: 40px; padding: 0.55rem 1.1rem;
+  font-family: 'DM Sans', sans-serif; font-weight: 600; font-size: 0.8rem;
+  cursor: pointer; box-shadow: 0 3px 14px rgba(0,0,0,0.2);
+  z-index: 500; transition: transform 0.15s;
+}
 .add-btn:hover { transform: translateY(-2px); }
 
-/* LOADING */
-.loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: var(--sea); z-index: 300; }
-.loading p { font-family: 'Playfair Display', serif; font-style: italic; font-size: 1rem; color: var(--south); }
+/* ── MOBILE OVERLAY ── */
+#mob-overlay {
+  display: none; position: absolute; inset: 0;
+  background: rgba(0,0,0,0.4); z-index: 99;
+}
 
-/* ═══════════════════════════════════════════════════════
-   MODAL — fixed position, highest z-index, fully isolated
-   ═══════════════════════════════════════════════════════ */
+/* ── MODAL ── */
 #modal-overlay {
-  display: none;
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0, 0, 0, 0.55);
-  z-index: 999999;
-  align-items: center;
-  justify-content: center;
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.55); z-index: 999999;
+  align-items: center; justify-content: center;
 }
 #modal-overlay.open { display: flex; }
-
 #modal-box {
-  background: #ffffff;
-  border-radius: 12px;
-  padding: 1.8rem;
-  width: 460px;
-  max-width: 94vw;
-  max-height: 90vh;
-  overflow-y: auto;
+  background: #fff; border-radius: 12px; padding: 1.8rem;
+  width: 460px; max-width: 94vw; max-height: 90vh; overflow-y: auto;
   box-shadow: 0 24px 70px rgba(0,0,0,0.35);
-  position: relative;
-  z-index: 1000000;
-  /* Ensure nothing can block interactions */
-  pointer-events: auto;
-  isolation: isolate;
+  pointer-events: auto; isolation: isolate;
 }
-#modal-box h2 { font-family: 'Playfair Display', serif; font-size: 1.25rem; margin-bottom: 1.2rem; border-bottom: 2px solid var(--gold); padding-bottom: 0.4rem; }
-
-.fg { margin-bottom: 0.85rem; }
-.fg label { display: block; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #777; margin-bottom: 0.22rem; }
-
-/* Inputs — explicitly interactive */
-.fg input,
-.fg textarea,
-.fg select {
-  display: block;
-  width: 100%;
-  border: 1.5px solid #d5d5d5;
-  border-radius: 6px;
-  padding: 0.5rem 0.7rem;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 0.86rem;
-  color: #1a1a1a;
-  background: #fafafa;
-  outline: none;
-  cursor: text;
-  pointer-events: auto !important;
-  user-select: text !important;
-  -webkit-user-select: text !important;
-  position: relative;
-  z-index: 1;
+#modal-box h2 { font-family: 'Playfair Display', serif; font-size: 1.2rem; margin-bottom: 1.1rem; border-bottom: 2px solid var(--gold); padding-bottom: 0.4rem; }
+.fg { margin-bottom: 0.8rem; }
+.fg label { display: block; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #777; margin-bottom: 0.2rem; }
+.fg input, .fg textarea, .fg select {
+  display: block; width: 100%; border: 1.5px solid #d5d5d5; border-radius: 6px;
+  padding: 0.48rem 0.7rem; font-family: 'DM Sans', sans-serif; font-size: 0.85rem;
+  color: #1a1a1a; background: #fafafa; outline: none;
+  pointer-events: auto !important; user-select: text !important; -webkit-user-select: text !important;
 }
-.fg input:focus,
-.fg textarea:focus { border-color: var(--gold); background: #fff; }
+.fg input:focus, .fg textarea:focus { border-color: var(--gold); background: #fff; }
 .fg select { cursor: pointer; }
 .fg textarea { min-height: 80px; resize: vertical; }
-
-.mactions { display: flex; gap: 0.6rem; justify-content: flex-end; margin-top: 1.2rem; }
-.btn { padding: 0.5rem 1.2rem; border-radius: 6px; border: none; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 0.84rem; font-weight: 500; pointer-events: auto !important; }
+.mactions { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem; flex-wrap: wrap; }
+.btn { padding: 0.48rem 1.1rem; border-radius: 6px; border: none; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 0.82rem; font-weight: 500; pointer-events: auto !important; }
 .btn-save   { background: var(--ink); color: #fff; }
-.btn-cancel { background: #eeeeee; color: var(--ink); }
+.btn-cancel { background: #eee; color: var(--ink); }
 .btn-del    { background: #fff0f0; color: var(--wedding); border: 1.5px solid #f0b0b0; }
+
+/* ── MOBILE ── */
+@media (max-width: 768px) {
+  header { height: 56px; padding: 0 1rem; }
+  header h1 { font-size: 1.25rem; }
+  .header-tagline, .header-hint { display: none; }
+  #hamburger { display: flex; align-items: center; }
+
+  .legend { height: 32px; padding: 0 0.8rem; gap: 0.7rem; }
+  .legend-item { font-size: 0.65rem; }
+
+  /* sidebar becomes a slide-in panel */
+  #sidebar {
+    position: absolute !important; top: 0; left: 0; height: 100%;
+    width: 280px !important; min-width: 280px !important;
+    transform: translateX(-100%);
+    transition: transform 0.28s ease !important;
+    box-shadow: 4px 0 24px rgba(0,0,0,0.22);
+  }
+  #sidebar.mob-open { transform: translateX(0); }
+  #sidebar.collapsed { transform: translateX(-100%) !important; }
+  .sidebar-inner { width: 280px; }
+
+  #sidebar-toggle { display: none; }
+  #mob-overlay.visible { display: block; }
+  #route-legend { display: none; }
+
+  .add-btn { padding: 0.45rem 0.85rem; font-size: 0.75rem; bottom: 0.6rem; right: 0.6rem; }
+}
 </style>
 </head>
 <body>
 
 <header>
-  <div>
-    <h1>Diana & <span>Nikita</span></h1>
-    <div class="header-sub">New Zealand · Aug 10 – Oct 2, 2026</div>
+  <div style="display:flex;align-items:center;gap:0.7rem">
+    <button id="hamburger" onclick="toggleMobile()" aria-label="Menu">☰</button>
+    <div>
+      <h1>Diana &amp; <span>Nikita</span></h1>
+      <div class="header-sub">New Zealand · Aug 10 – Oct 2, 2026</div>
+    </div>
   </div>
-  <div class="header-right">
+  <div style="text-align:right">
     <div class="header-tagline">7.5 weeks · 2 islands · 1 wedding</div>
-    <div class="header-hint">Hover to preview · Double-click any pin or card to edit · Scroll to zoom</div>
+    <div class="header-hint">Hover pin to preview · Double-click to edit · Scroll to zoom</div>
   </div>
 </header>
 
@@ -170,27 +269,42 @@ header h1 span { color: var(--gold); font-style: italic; }
   <div class="legend-item"><div class="legend-dot" style="background:var(--transit)"></div>Flights / Transit</div>
 </div>
 
-<div class="layout">
-  <div class="sidebar" id="sidebar"></div>
+<div id="app">
+  <div id="sidebar">
+    <div class="sidebar-inner" id="sidebar-inner"></div>
+  </div>
+
+  <button id="sidebar-toggle" onclick="toggleDesktop()" title="Toggle sidebar">◀</button>
+
+  <div id="mob-overlay" onclick="toggleMobile()"></div>
+
   <div id="map-wrap">
-    <div class="loading" id="loading"><p>Loading New Zealand map…</p></div>
-    <svg id="map-svg"></svg>
+    <div id="map-leaflet"></div>
     <div id="tip"></div>
+    <div id="route-legend">
+      <div class="rl-item">
+        <div class="rl-line" style="background:var(--south)"></div>
+        <span>Driving route</span>
+      </div>
+      <div class="rl-item">
+        <div class="rl-line rl-dashed"></div>
+        <span>Flight</span>
+      </div>
+    </div>
     <button class="add-btn" onclick="openAdd()">+ Add Stop</button>
   </div>
 </div>
 
-<!-- MODAL: lives at <body> root, fixed position, nothing can block it -->
 <div id="modal-overlay">
   <div id="modal-box">
     <h2 id="modal-title">Edit Stop</h2>
     <div class="fg">
       <label for="f-name">Location Name</label>
-      <input type="text" id="f-name" autocomplete="off" />
+      <input type="text" id="f-name" autocomplete="off">
     </div>
     <div class="fg">
       <label for="f-dates">Dates</label>
-      <input type="text" id="f-dates" placeholder="e.g. Aug 12–22" autocomplete="off" />
+      <input type="text" id="f-dates" placeholder="e.g. Aug 12–22" autocomplete="off">
     </div>
     <div class="fg">
       <label for="f-type">Category</label>
@@ -206,62 +320,60 @@ header h1 span { color: var(--gold); font-style: italic; }
       <textarea id="f-notes" rows="4"></textarea>
     </div>
     <div class="mactions">
-      <button class="btn btn-del"    id="del-btn"    onclick="doDelete()">Delete Stop</button>
-      <button class="btn btn-cancel"                 onclick="closeModal()">Cancel</button>
-      <button class="btn btn-save"                   onclick="doSave()">Save</button>
+      <button class="btn btn-del" id="del-btn" onclick="doDelete()">Delete Stop</button>
+      <button class="btn btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-save" onclick="doSave()">Save</button>
     </div>
   </div>
 </div>
 
 <script>
 // ── SHEET CONFIG ──────────────────────────────────────────────────────────────
-const SHEET_ID = '1ZJ7k0qNxnfkXt3o_pGPdAmY_EbWWLdX7O1DqTDPLfms';
+const SHEET_ID  = '1ZJ7k0qNxnfkXt3o_pGPdAmY_EbWWLdX7O1DqTDPLfms';
 const SHEET_GID = '0';
-const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`;
+const CSV_URL   = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`;
 
-// ── COORDINATES LOOKUP ────────────────────────────────────────────────────────
-// Maps Overnight cell values (lowercase, trimmed) → [lon, lat, type]
+// ── COORDINATES ───────────────────────────────────────────────────────────────
 const COORDS = {
-  'queenstown':                        [168.6626, -45.0312, 'wedding'],
-  'manapouri':                         [167.6167, -45.5667, 'south'],
-  'doubtful sound':                    [167.0,    -45.5,    'south'],
-  'te anau':                           [167.7191, -45.4153, 'south'],
-  'te anau accommodation':             [167.7191, -45.4153, 'south'],
-  'curio bay':                         [169.43,   -46.55,   'south'],
-  'accommodation at curio':            [169.43,   -46.55,   'south'],
-  'kaka point':                        [169.86,   -46.39,   'south'],
-  'dunedin':                           [170.5028, -45.8788, 'south'],
-  'twizel':                            [170.0994, -44.2518, 'south'],
-  'lake tekapo':                       [170.4776, -44.0053, 'south'],
-  'tekapo':                            [170.4776, -44.0053, 'south'],
-  'christchurch':                      [172.6362, -43.5321, 'south'],
-  'kaikōura':                          [173.6833, -42.4,    'south'],
-  'kaikoura':                          [173.6833, -42.4,    'south'],
-  'blenheim':                          [173.9612, -41.5134, 'south'],
-  'kaiteriteri':                       [173.05,   -41.03,   'south'],
-  'abel tasman':                       [173.05,   -41.03,   'south'],
-  'hokitika':                          [170.9624, -42.7163, 'south'],
-  'franz josef':                       [170.1833, -43.45,   'south'],
-  'fox glacier':                       [170.0145, -43.4632, 'south'],
-  'wānaka':                            [169.1417, -44.7,    'south'],
-  'wanaka':                            [169.1417, -44.7,    'south'],
-  'hawea':                             [169.244,  -44.6,    'south'],
-  'hawea hotel':                       [169.244,  -44.6,    'south'],
-  'dubai airport lounge':              [55.3644,  25.2532,  'transit'],
-  'auckland':                          [174.7633, -36.8785, 'north'],
-  'coromandel':                        [175.5,    -36.75,   'north'],
-  'hahei':                             [175.78,   -36.87,   'north'],
-  'cathedral cove':                    [175.78,   -36.87,   'north'],
-  'rotorua':                           [176.2497, -38.1368, 'north'],
-  'taupō':                             [176.0702, -38.6857, 'north'],
-  'taupo':                             [176.0702, -38.6857, 'north'],
-  'paihia':                            [174.0879, -35.2792, 'north'],
-  'bay of islands':                    [174.0879, -35.2792, 'north'],
-  'kai iwi':                           [174.06,   -36.1,    'north'],
-  'mangawhai':                         [174.57,   -36.13,   'north'],
+  'queenstown':             [168.6626, -45.0312, 'wedding'],
+  'manapouri':              [167.6167, -45.5667, 'south'],
+  'doubtful sound':         [167.0,    -45.5,    'south'],
+  'te anau':                [167.7191, -45.4153, 'south'],
+  'te anau accommodation':  [167.7191, -45.4153, 'south'],
+  'curio bay':              [169.43,   -46.55,   'south'],
+  'accommodation at curio': [169.43,   -46.55,   'south'],
+  'kaka point':             [169.86,   -46.39,   'south'],
+  'dunedin':                [170.5028, -45.8788, 'south'],
+  'twizel':                 [170.0994, -44.2518, 'south'],
+  'lake tekapo':            [170.4776, -44.0053, 'south'],
+  'tekapo':                 [170.4776, -44.0053, 'south'],
+  'christchurch':           [172.6362, -43.5321, 'south'],
+  'kaikōura':               [173.6833, -42.4,    'south'],
+  'kaikoura':               [173.6833, -42.4,    'south'],
+  'blenheim':               [173.9612, -41.5134, 'south'],
+  'kaiteriteri':            [173.05,   -41.03,   'south'],
+  'abel tasman':            [173.05,   -41.03,   'south'],
+  'hokitika':               [170.9624, -42.7163, 'south'],
+  'franz josef':            [170.1833, -43.45,   'south'],
+  'fox glacier':            [170.0145, -43.4632, 'south'],
+  'wānaka':                 [169.1417, -44.7,    'south'],
+  'wanaka':                 [169.1417, -44.7,    'south'],
+  'hawea':                  [169.244,  -44.6,    'south'],
+  'hawea hotel':            [169.244,  -44.6,    'south'],
+  'dubai airport lounge':   [55.3644,  25.2532,  'transit'],
+  'auckland':               [174.7633, -36.8785, 'north'],
+  'coromandel':             [175.5,    -36.75,   'north'],
+  'hahei':                  [175.78,   -36.87,   'north'],
+  'cathedral cove':         [175.78,   -36.87,   'north'],
+  'rotorua':                [176.2497, -38.1368, 'north'],
+  'taupō':                  [176.0702, -38.6857, 'north'],
+  'taupo':                  [176.0702, -38.6857, 'north'],
+  'paihia':                 [174.0879, -35.2792, 'north'],
+  'bay of islands':         [174.0879, -35.2792, 'north'],
+  'kai iwi':                [174.06,   -36.1,    'north'],
+  'mangawhai':              [174.57,   -36.13,   'north'],
 };
 
-// Fuzzy coord lookup — tries exact, then partial match
 function lookupCoords(overnight) {
   if (!overnight) return null;
   const key = overnight.toLowerCase().trim();
@@ -281,7 +393,7 @@ function parseCSV(text) {
     if (c === '"') { inQ = !inQ; continue; }
     if (c === ',' && !inQ) { row.push(cur.trim()); cur = ''; continue; }
     if ((c === '\n' || c === '\r') && !inQ) {
-      if (c === '\r' && text[i+1] === '\n') i++;
+      if (c === '\r' && text[i + 1] === '\n') i++;
       row.push(cur.trim()); rows.push(row); row = []; cur = ''; continue;
     }
     cur += c;
@@ -290,197 +402,183 @@ function parseCSV(text) {
   return rows;
 }
 
-// ── BUILD STOPS FROM CSV ──────────────────────────────────────────────────────
-// Columns: A=Dates, B=Notes, C=Overnight, D=Accommodations, E=CancelBy, F=Food
+// ── BUILD STOPS ───────────────────────────────────────────────────────────────
 function buildStops(rows) {
-  // Skip header row
   const data = rows.slice(1).filter(r => r.length >= 3);
   const groups = [];
-  let current = null;
-
+  let cur = null;
   for (const r of data) {
-    const date   = (r[0] || '').trim();
-    const notes  = (r[1] || '').trim();
-    const over   = (r[2] || '').trim();
-    const accom  = (r[3] || '').trim();
-    const cancel = (r[4] || '').trim();
-    const food   = (r[5] || '').trim();
-
-    if (!over) continue; // skip rows with no overnight location
-
-    if (current && current.overnight.toLowerCase() === over.toLowerCase()) {
-      // Same location — accumulate
-      if (notes) current.notesList.push(notes);
-      if (food && !current.food.includes(food)) current.food.push(food);
-      if (cancel) current.cancel = cancel;
-      current.lastDate = date;
+    const date  = (r[0] || '').trim();
+    const notes = (r[1] || '').trim();
+    const over  = (r[2] || '').trim();
+    const accom = (r[3] || '').trim();
+    const cancel= (r[4] || '').trim();
+    const food  = (r[5] || '').trim();
+    if (!over) continue;
+    if (cur && cur.overnight.toLowerCase() === over.toLowerCase()) {
+      if (notes) cur.notesList.push(notes);
+      if (food && !cur.food.includes(food)) cur.food.push(food);
+      if (cancel) cur.cancel = cancel;
+      cur.lastDate = date;
     } else {
-      // New location
-      if (current) groups.push(current);
-      current = {
-        overnight: over,
-        accom: accom,
-        firstDate: date,
-        lastDate: date,
-        notesList: notes ? [notes] : [],
-        food: food ? [food] : [],
-        cancel: cancel,
-      };
+      if (cur) groups.push(cur);
+      cur = { overnight: over, accom, firstDate: date, lastDate: date, notesList: notes ? [notes] : [], food: food ? [food] : [], cancel };
     }
   }
-  if (current) groups.push(current);
-
-  // Convert groups → stops
+  if (cur) groups.push(cur);
   return groups.map((g, i) => {
     const coords = lookupCoords(g.overnight);
     const [lon, lat, type] = coords || [172.0, -41.5, 'south'];
-    const dateStr = g.firstDate === g.lastDate
-      ? g.firstDate
-      : `${g.firstDate} – ${g.lastDate}`;
-    const notesStr = g.notesList.join(' · ');
-    const foodStr  = g.food.length ? '🍴 ' + g.food.join(', ') : '';
+    const dateStr = g.firstDate === g.lastDate ? g.firstDate : `${g.firstDate} – ${g.lastDate}`;
     return {
-      id: i + 1,
-      name: g.overnight,
-      dates: dateStr,
-      type,
-      lon, lat,
-      accom: g.accom,
-      cancel: g.cancel,
-      notes: [notesStr, foodStr].filter(Boolean).join('  '),
+      id: i + 1, name: g.overnight, dates: dateStr, type, lon, lat,
+      accom: g.accom, cancel: g.cancel,
+      notes: [g.notesList.join(' · '), g.food.length ? '🍴 ' + g.food.join(', ') : ''].filter(Boolean).join('  '),
     };
   });
 }
 
-// ── DATA STATE ────────────────────────────────────────────────────────────────
-let stops = [];
-let nextId = 1;
-let clickTimer = null;
-let activeId = null;
-let editingId = null;
+// ── STATE ─────────────────────────────────────────────────────────────────────
+let stops = [], nextId = 1, activeId = null, editingId = null;
+let desktopOpen = true;
+const TC = { wedding: '#c94a4a', south: '#4a7c6f', north: '#7c4a6f', transit: '#4a6f7c' };
+const isNZ = s => s.lon > 160 && s.lon < 180;
 
-const TC = { wedding:'#c94a4a', south:'#4a7c6f', north:'#7c4a6f', transit:'#4a6f7c' };
+// ── LEAFLET SETUP ─────────────────────────────────────────────────────────────
+const tileLayers = {
+  street: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a> contributors', maxZoom: 19
+  }),
+  satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    attribution: '© Esri, Maxar, Earthstar Geographics', maxZoom: 18
+  }),
+  topo: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://opentopomap.org">OpenTopoMap</a>', maxZoom: 17
+  }),
+};
 
-// ── D3 MAP ────────────────────────────────────────────────────────────────────
-const mapWrap = document.getElementById('map-wrap');
-const svg = d3.select('#map-svg');
-let g, projection, pathGen, gLand, gRoutes, gMarkers;
+const map = L.map('map-leaflet', { center: [-41.5, 172.0], zoom: 5, zoomControl: false, tap: false });
+tileLayers.street.addTo(map);
+L.control.zoom({ position: 'topright' }).addTo(map);
 
-function sz() { return { w: mapWrap.clientWidth || 800, h: mapWrap.clientHeight || 600 }; }
-
-function initMap() {
-  const { w, h } = sz();
-  svg.attr('width', w).attr('height', h);
-  projection = d3.geoMercator()
-    .center([172.0, -41.8])
-    .scale(Math.min(w, h) * 2.2)
-    .translate([w/2, h/2]);
-  pathGen = d3.geoPath().projection(projection);
-  g        = svg.append('g');
-  gLand    = g.append('g');
-  gRoutes  = g.append('g');
-  gMarkers = g.append('g');
-
-  const zoom = d3.zoom()
-    .scaleExtent([0.4, 25])
-    .on('zoom', e => g.attr('transform', e.transform));
-  svg.call(zoom);
-  svg.on('dblclick.zoom', null); // prevent D3 hijacking dblclick
-}
-
-async function loadMap() {
-  let world;
-  for (const url of [
-    'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json',
-    'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json',
-  ]) {
-    try { world = await d3.json(url); break; } catch(e) {}
+// Layer switcher
+let activeLayerKey = 'street';
+const LayerSwitcher = L.Control.extend({
+  onAdd() {
+    const wrap = L.DomUtil.create('div', 'layer-switcher');
+    L.DomEvent.disableClickPropagation(wrap);
+    L.DomEvent.disableScrollPropagation(wrap);
+    [['street', '🗺 Street'], ['satellite', '🛰 Satellite'], ['topo', '⛰ Topo']].forEach(([key, label]) => {
+      const btn = L.DomUtil.create('button', 'lbtn' + (key === 'street' ? ' active' : ''), wrap);
+      btn.textContent = label;
+      btn.dataset.key = key;
+      L.DomEvent.on(btn, 'click', () => {
+        if (key === activeLayerKey) return;
+        map.removeLayer(tileLayers[activeLayerKey]);
+        tileLayers[key].addTo(map);
+        markerLayer.bringToFront();
+        activeLayerKey = key;
+        wrap.querySelectorAll('.lbtn').forEach(b => b.classList.toggle('active', b.dataset.key === key));
+      });
+    });
+    return wrap;
   }
-  if (!world) { document.getElementById('loading').innerHTML = '<p style="color:#c94a4a">Map failed to load.<br>Check your internet connection.</p>'; return; }
-  const all = topojson.feature(world, world.objects.countries);
-  const nz  = all.features.filter(f => +f.id === 554);
-  gLand.selectAll('path').data(nz).enter().append('path').attr('class','nz-land').attr('d', pathGen);
-  document.getElementById('loading').style.display = 'none';
-  render();
+});
+new LayerSwitcher({ position: 'topright' }).addTo(map);
+
+const routeLayer  = L.layerGroup().addTo(map);
+const markerLayer = L.layerGroup().addTo(map);
+
+// ── FLIGHT ARC ────────────────────────────────────────────────────────────────
+function arcPoints(from, to, steps = 32) {
+  const pts = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    pts.push([
+      from[0] + (to[0] - from[0]) * t + Math.sin(Math.PI * t) * 2.5,
+      from[1] + (to[1] - from[1]) * t,
+    ]);
+  }
+  return pts;
 }
 
+// ── RENDER ROUTES ─────────────────────────────────────────────────────────────
 function renderRoutes() {
-  gRoutes.selectAll('*').remove();
-  const line = d3.line().x(d=>d[0]).y(d=>d[1]).curve(d3.curveCatmullRom.alpha(0.5));
-  const p = s => projection([s.lon, s.lat]);
-  const sa = stops.filter(s => s.type==='south' || s.type==='wedding');
-  const na = stops.filter(s => s.type==='north');
-  const tr = stops.find(s => s.type==='transit');
-  if (sa.length > 1) gRoutes.append('path').attr('class','route-line route-south').attr('d', line(sa.map(p)));
-  if (tr && sa.length) {
-    const [lx,ly]=p(sa[sa.length-1]), [tx,ty]=p(tr);
-    gRoutes.append('path').attr('class','route-line route-flight').attr('d',`M${lx},${ly} Q${(lx+tx)/2-40},${Math.min(ly,ty)-50} ${tx},${ty}`);
+  routeLayer.clearLayers();
+  const sa = stops.filter(s => (s.type === 'south' || s.type === 'wedding') && isNZ(s));
+  const na = stops.filter(s => s.type === 'north' && isNZ(s));
+
+  const driveOpts  = (color) => ({ color, weight: 3.5, opacity: 0.85, lineJoin: 'round', lineCap: 'round' });
+  const flightOpts = { color: TC.transit, weight: 2.5, opacity: 0.75, dashArray: '10 9' };
+
+  if (sa.length > 1)
+    L.polyline(sa.map(s => [s.lat, s.lon]), driveOpts(TC.south)).addTo(routeLayer);
+
+  if (sa.length && na.length) {
+    const from = [sa[sa.length - 1].lat, sa[sa.length - 1].lon];
+    const to   = [na[0].lat, na[0].lon];
+    L.polyline(arcPoints(from, to), flightOpts).addTo(routeLayer);
   }
-  if (tr && na.length) {
-    const [tx,ty]=p(tr), [n0x,n0y]=p(na[0]);
-    gRoutes.append('path').attr('class','route-line route-north').attr('d',`M${tx},${ty}L${n0x},${n0y}`);
-    if (na.length>1) gRoutes.append('path').attr('class','route-line route-north').attr('d', line(na.map(p)));
-  }
+
+  if (na.length > 1)
+    L.polyline(na.map(s => [s.lat, s.lon]), driveOpts(TC.north)).addTo(routeLayer);
 }
 
+// ── RENDER MARKERS ────────────────────────────────────────────────────────────
 function renderMarkers() {
-  gMarkers.selectAll('*').remove();
+  markerLayer.clearLayers();
   let n = 0;
-  ['wedding','south','transit','north'].forEach(type => {
-    stops.filter(s=>s.type===type).forEach(s => {
-      if (type!=='transit') n++;
-      const label = type==='wedding'?'💒': type==='transit'?'✈': String(n);
-      const [px,py] = projection([s.lon, s.lat]);
-      const r = type==='wedding' ? 11 : 8;
+  let clickTimer = null;
+  ['wedding', 'south', 'transit', 'north'].forEach(type => {
+    stops.filter(s => s.type === type).forEach(s => {
+      if (type !== 'transit') n++;
+      if (!isNZ(s)) return;
+      const label  = type === 'wedding' ? '💒' : type === 'transit' ? '✈' : String(n);
+      const sz     = type === 'wedding' ? 26 : 20;
       const active = s.id === activeId;
-      const grp = gMarkers.append('g')
-        .style('cursor','pointer')
-        .on('click', () => { clearTimeout(clickTimer); clickTimer = setTimeout(() => selectStop(s.id), 220); })
-        .on('dblclick', evt => { evt.stopPropagation(); clearTimeout(clickTimer); openEdit(s.id); })
-        .on('mouseenter', evt => showTip(evt, s.id))
-        .on('mouseleave', hideTip);
-      grp.append('circle')
-        .attr('cx',px).attr('cy',py).attr('r', active ? r+3 : r)
-        .attr('fill', TC[type])
-        .attr('stroke','#fff').attr('stroke-width', 2.5)
-        .style('filter','drop-shadow(0 2px 4px rgba(0,0,0,0.4))');
-      grp.append('text')
-        .attr('x',px).attr('y',py)
-        .attr('text-anchor','middle').attr('dominant-baseline','central')
-        .attr('font-size', type==='wedding'||type==='transit' ? 11 : 9)
-        .attr('font-weight','700').attr('fill','#fff')
-        .style('pointer-events','none')
-        .text(label);
+      const icon = L.divIcon({
+        html: `<div class="mk${active ? ' active' : ''}" style="width:${sz}px;height:${sz}px;background:${TC[type]};font-size:${type === 'wedding' ? 13 : 10}px">${label}</div>`,
+        className: '', iconSize: [sz, sz], iconAnchor: [sz / 2, sz / 2],
+      });
+      const m = L.marker([s.lat, s.lon], { icon, zIndexOffset: active ? 1000 : 0 });
+      m.on('click', () => {
+        clearTimeout(clickTimer);
+        clickTimer = setTimeout(() => selectStop(s.id), 220);
+      });
+      m.on('dblclick', e => { L.DomEvent.stopPropagation(e); clearTimeout(clickTimer); openEdit(s.id); });
+      m.on('mouseover', e => showTip(e.originalEvent, s));
+      m.on('mouseout', hideTip);
+      markerLayer.addLayer(m);
     });
   });
 }
 
+// ── RENDER SIDEBAR ─────────────────────────────────────────────────────────────
 function renderSidebar() {
-  const el = document.getElementById('sidebar');
-  const sections = [
-    { key:'wedding', label:'💍 Queenstown & Wedding', types:['wedding'] },
-    { key:'south',   label:'🏔 South Island',          types:['south']   },
-    { key:'transit', label:'✈️ Fly to North Island',   types:['transit'] },
-    { key:'north',   label:'🌿 North Island',           types:['north']   },
+  const el = document.getElementById('sidebar-inner');
+  const secs = [
+    { key: 'wedding', label: '💍 Queenstown & Wedding', types: ['wedding'] },
+    { key: 'south',   label: '🏔 South Island',          types: ['south'] },
+    { key: 'transit', label: '✈️ Fly to North Island',   types: ['transit'] },
+    { key: 'north',   label: '🌿 North Island',            types: ['north'] },
   ];
   let n = 0;
-  el.innerHTML = sections.map(sec => {
+  el.innerHTML = secs.map(sec => {
     const items = stops.filter(s => sec.types.includes(s.type));
     if (!items.length) return '';
-    return `<div class="sec-head ${sec.key}">${sec.label}</div>` +
-      items.map(s => {
-        if (sec.key !== 'transit') n++;
-        const num = sec.key === 'transit' ? '✈' : n;
-        return `<div class="stop-card${s.id===activeId?' active':''}" onclick="selectStop(${s.id})" ondblclick="openEdit(${s.id})" title="Double-click to edit">
-          <div class="snum ${s.type}">${num}</div>
-          <div class="sinfo">
-            <div class="sname">${s.name}${s.type==='wedding'?'<span class="wtag">💒</span>':''}</div>
-            <div class="sdates">${s.dates}</div>
-            ${s.accom ? `<div style="font-size:0.68rem;color:#b07d2a;margin:0.1rem 0">🏠 ${s.accom}</div>` : ''}
-            <div class="snote">${s.notes}</div>
-          </div>
-        </div>`;
-      }).join('');
+    return `<div class="sec-head ${sec.key}">${sec.label}</div>` + items.map(s => {
+      if (sec.key !== 'transit') n++;
+      const num = sec.key === 'transit' ? '✈' : n;
+      return `<div class="stop-card${s.id === activeId ? ' active' : ''}" onclick="selectStop(${s.id})" ondblclick="openEdit(${s.id})" title="Double-click to edit">
+        <div class="snum ${s.type}">${num}</div>
+        <div class="sinfo">
+          <div class="sname">${s.name}${s.type === 'wedding' ? '<span class="wtag">💒</span>' : ''}</div>
+          <div class="sdates">${s.dates}</div>
+          ${s.accom ? `<div class="saccom">🏠 ${s.accom}</div>` : ''}
+          <div class="snote">${s.notes}</div>
+        </div>
+      </div>`;
+    }).join('');
   }).join('');
 }
 
@@ -489,32 +587,51 @@ function render() { renderRoutes(); renderMarkers(); renderSidebar(); }
 // ── INTERACTIONS ──────────────────────────────────────────────────────────────
 function selectStop(id) {
   activeId = id;
+  const s = stops.find(x => x.id === id);
+  if (s && isNZ(s)) map.panTo([s.lat, s.lon], { animate: true });
   render();
   setTimeout(() => {
     const c = document.querySelector('.stop-card.active');
-    if (c) c.scrollIntoView({ behavior:'smooth', block:'nearest' });
+    if (c) c.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, 40);
 }
 
-function showTip(evt, id) {
-  const s = stops.find(x=>x.id===id);
-  if (!s) return;
+function showTip(evt, s) {
   const tip = document.getElementById('tip');
-  tip.innerHTML = `<h3>${s.name}</h3><div class="td">${s.dates}</div>${s.accom ? `<p style="font-size:0.68rem;color:var(--gold-light);margin-bottom:0.3rem">🏠 ${s.accom}</p>` : ''}<p>${s.notes}</p><p class="th">Double-click to edit</p>`;
+  tip.innerHTML = `<h3>${s.name}</h3><div class="td">${s.dates}</div>${s.accom ? `<p style="font-size:0.66rem;color:var(--gold-light);margin-bottom:0.28rem">🏠 ${s.accom}</p>` : ''}<p>${s.notes}</p><p class="th">Double-click to edit</p>`;
   tip.style.display = 'block';
-  const rect = mapWrap.getBoundingClientRect();
-  let lx = evt.clientX - rect.left + 14;
-  let ly = evt.clientY - rect.top + 14;
-  if (lx + 240 > rect.width)  lx = evt.clientX - rect.left - 250;
-  if (ly + 180 > rect.height) ly = evt.clientY - rect.top - 190;
+  const rect = document.getElementById('map-wrap').getBoundingClientRect();
+  let lx = evt.clientX - rect.left + 14, ly = evt.clientY - rect.top + 14;
+  if (lx + 250 > rect.width)  lx = evt.clientX - rect.left - 256;
+  if (ly + 190 > rect.height) ly = evt.clientY - rect.top  - 196;
   tip.style.left = lx + 'px';
   tip.style.top  = ly + 'px';
 }
-function hideTip() { document.getElementById('tip').style.display='none'; }
+function hideTip() { document.getElementById('tip').style.display = 'none'; }
+
+// ── SIDEBAR TOGGLES ───────────────────────────────────────────────────────────
+function toggleDesktop() {
+  desktopOpen = !desktopOpen;
+  const sidebar = document.getElementById('sidebar');
+  const toggle  = document.getElementById('sidebar-toggle');
+  sidebar.classList.toggle('collapsed', !desktopOpen);
+  toggle.innerHTML   = desktopOpen ? '◀' : '▶';
+  toggle.style.left  = desktopOpen ? 'var(--sidebar-w)' : '0px';
+  toggle.style.borderRadius = desktopOpen ? '0 6px 6px 0' : '0 6px 6px 0';
+  setTimeout(() => map.invalidateSize(), 300);
+}
+
+function toggleMobile() {
+  const sidebar  = document.getElementById('sidebar');
+  const overlay  = document.getElementById('mob-overlay');
+  const isOpen   = sidebar.classList.contains('mob-open');
+  sidebar.classList.toggle('mob-open', !isOpen);
+  overlay.classList.toggle('visible', !isOpen);
+}
 
 // ── MODAL ─────────────────────────────────────────────────────────────────────
 function openEdit(id) {
-  const s = stops.find(x=>x.id===id);
+  const s = stops.find(x => x.id === id);
   editingId = id;
   document.getElementById('modal-title').textContent = 'Edit Stop';
   document.getElementById('f-name').value  = s.name;
@@ -523,81 +640,56 @@ function openEdit(id) {
   document.getElementById('f-notes').value = s.notes;
   document.getElementById('del-btn').style.display = 'inline-block';
   document.getElementById('modal-overlay').classList.add('open');
-  // Focus the name field after a short delay
   setTimeout(() => document.getElementById('f-name').focus(), 50);
 }
-
 function openAdd() {
   editingId = null;
   document.getElementById('modal-title').textContent = 'Add New Stop';
-  document.getElementById('f-name').value  = '';
-  document.getElementById('f-dates').value = '';
-  document.getElementById('f-type').value  = 'south';
-  document.getElementById('f-notes').value = '';
+  ['f-name','f-dates','f-notes'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('f-type').value = 'south';
   document.getElementById('del-btn').style.display = 'none';
   document.getElementById('modal-overlay').classList.add('open');
   setTimeout(() => document.getElementById('f-name').focus(), 50);
 }
-
 function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); }
-
 function doSave() {
   const name = document.getElementById('f-name').value.trim();
   if (!name) { document.getElementById('f-name').focus(); return; }
   const data = {
-    name,
-    dates: document.getElementById('f-dates').value,
-    type:  document.getElementById('f-type').value,
+    name, dates: document.getElementById('f-dates').value,
+    type: document.getElementById('f-type').value,
     notes: document.getElementById('f-notes').value,
-    lon: editingId ? stops.find(s=>s.id===editingId).lon : 172.0,
-    lat: editingId ? stops.find(s=>s.id===editingId).lat : -41.5,
+    lon: editingId ? stops.find(s => s.id === editingId).lon : 172.0,
+    lat: editingId ? stops.find(s => s.id === editingId).lat : -41.5,
   };
-  if (editingId) { const i = stops.findIndex(s=>s.id===editingId); stops[i] = {...stops[i], ...data}; }
+  if (editingId) { const i = stops.findIndex(s => s.id === editingId); stops[i] = { ...stops[i], ...data }; }
   else stops.push({ id: nextId++, ...data });
-  closeModal();
-  render();
+  closeModal(); render();
 }
-
 function doDelete() {
   if (!editingId) return;
-  if (!confirm(`Remove "${stops.find(s=>s.id===editingId)?.name}" from the itinerary?`)) return;
+  if (!confirm(`Remove "${stops.find(s => s.id === editingId)?.name}"?`)) return;
   stops = stops.filter(s => s.id !== editingId);
   if (activeId === editingId) activeId = null;
-  closeModal();
-  render();
+  closeModal(); render();
 }
-
-// Close on overlay background click
 document.getElementById('modal-overlay').addEventListener('mousedown', function(e) {
   if (e.target === this) closeModal();
 });
 
-// ── RESIZE ────────────────────────────────────────────────────────────────────
-window.addEventListener('resize', () => {
-  const { w, h } = sz();
-  svg.attr('width', w).attr('height', h);
-  projection.translate([w/2, h/2]).scale(Math.min(w,h)*2.2);
-  pathGen = d3.geoPath().projection(projection);
-  gLand.selectAll('path').attr('d', pathGen);
-  render();
-});
-
 // ── BOOT ──────────────────────────────────────────────────────────────────────
 async function boot() {
-  initMap();
   try {
     const res = await fetch(CSV_URL);
     if (!res.ok) throw new Error('HTTP ' + res.status);
-    const text = await res.text();
-    const rows = parseCSV(text);
-    stops = buildStops(rows);
+    const rows = parseCSV(await res.text());
+    stops  = buildStops(rows);
     nextId = stops.length + 1;
   } catch(e) {
     console.warn('Sheet fetch failed:', e);
     stops = [];
   }
-  renderSidebar();
-  await loadMap();
+  render();
 }
 boot();
 </script>
