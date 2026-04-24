@@ -104,6 +104,33 @@ header h1 span { color: var(--gold); font-style: italic; }
 .done-tag { background: #d4f5e0; color: #1a7a3a; }
 .next-tag { background: #fff0e8; color: #c94a00; }
 .stop-card.done      { border-left: 3px solid #34c759; }
+
+/* Navigate button — sidebar */
+.nav-btn {
+  display: none; /* desktop: hidden */
+  margin-top: 0.45rem;
+  padding: 0.32rem 0.7rem;
+  background: var(--ink); color: var(--cream);
+  border-radius: 6px; font-size: 0.7rem; font-weight: 500;
+  text-decoration: none; width: fit-content;
+  transition: background 0.15s;
+}
+.nav-btn:hover { background: #333; }
+
+/* Navigate button — tooltip */
+.tip-nav-btn {
+  display: inline-block; margin-top: 0.5rem;
+  padding: 0.3rem 0.75rem;
+  background: var(--gold); color: var(--ink);
+  border-radius: 6px; font-size: 0.72rem; font-weight: 600;
+  text-decoration: none; pointer-events: auto;
+}
+.tip-nav-btn:hover { background: var(--gold-light); }
+
+@media (max-width: 768px) {
+  .nav-btn { display: inline-block; }
+  #tip { pointer-events: auto; } /* allow tapping links in tooltip */
+}
 .stop-card.next-card { border-left: 3px solid #ff6b35; background: #fffaf6; }
 .stop-card.next-card .sname { font-weight: 700; }
 
@@ -480,6 +507,11 @@ function pinColor(s, isNext) {
   return stopStatus(s.dates) === 'past' ? PIN_PAST : PIN_UPCOMING;
 }
 
+function navUrl(s) {
+  // Universal URL — opens Google Maps / Apple Maps / Waze depending on device
+  return `https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lon}&travelmode=driving`;
+}
+
 // ── CSV PARSER ────────────────────────────────────────────────────────────────
 function parseCSV(text) {
   const rows = [];
@@ -716,6 +748,7 @@ function renderSidebar() {
           <div class="sdates">${s.dates}</div>
           ${s.accom ? `<div class="saccom">🏠 ${s.accom}</div>` : ''}
           <div class="snote">${s.notes}</div>
+          ${isNZ(s) ? `<a href="${navUrl(s)}" target="_blank" rel="noopener" class="nav-btn" onclick="event.stopPropagation()">🧭 Navigate</a>` : ''}
         </div>
       </div>`;
     }).join('');
@@ -745,7 +778,7 @@ function selectStop(id) {
 
 function showTip(evt, s) {
   const tip = document.getElementById('tip');
-  tip.innerHTML = `<h3>${s.name}</h3><div class="td">${s.dates}</div>${s.accom ? `<p style="font-size:0.66rem;color:var(--gold-light);margin-bottom:0.28rem">🏠 ${s.accom}</p>` : ''}<p>${s.notes}</p><p class="th">Double-click to edit</p>`;
+  tip.innerHTML = `<h3>${s.name}</h3><div class="td">${s.dates}</div>${s.accom ? `<p style="font-size:0.66rem;color:var(--gold-light);margin-bottom:0.28rem">🏠 ${s.accom}</p>` : ''}<p>${s.notes}</p><a href="${navUrl(s)}" target="_blank" rel="noopener" class="tip-nav-btn">🧭 Navigate</a><p class="th">Double-click to edit</p>`;
   tip.style.display = 'block';
   const rect = document.getElementById('map-wrap').getBoundingClientRect();
   const tw = 248, th = 200, pad = 8;
