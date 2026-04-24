@@ -330,6 +330,30 @@ header h1 span { color: var(--gold); font-style: italic; }
   background: rgba(0,0,0,0.4); z-index: 99;
 }
 
+/* ── COUNTDOWN BAR ── */
+#countdown-bar {
+  background: var(--ink); color: var(--gold);
+  font-family: 'Playfair Display', serif; font-style: italic;
+  font-size: 0.82rem; text-align: center;
+  padding: 0.28rem 1rem; border-bottom: 1px solid #2a2a2a;
+  letter-spacing: 0.03em; flex-shrink: 0;
+}
+
+/* ── WEATHER BADGE ── */
+.sweather {
+  display: inline-block; font-size: 0.68rem; color: #888;
+  margin-left: 0.4rem; vertical-align: middle;
+}
+
+/* ── DRIVE TIME DIVIDER ── */
+.drive-div {
+  display: flex; align-items: center; gap: 0.45rem;
+  padding: 0.18rem 0.9rem 0.18rem 2.5rem;
+  background: #f8f7f3;
+}
+.drive-div-line { flex: 1; height: 1px; background: #e0ddd5; }
+.drive-label { font-size: 0.6rem; color: #aaa; white-space: nowrap; font-weight: 500; }
+
 /* ── MODAL ── */
 #modal-overlay {
   display: none; position: fixed; inset: 0;
@@ -417,6 +441,7 @@ header h1 span { color: var(--gold); font-style: italic; }
 
   /* Modal: never overlap Dynamic Island */
   #modal-box { margin-top: env(safe-area-inset-top); }
+  #countdown-bar { display: none; }
 }
 </style>
 </head>
@@ -438,6 +463,8 @@ header h1 span { color: var(--gold); font-style: italic; }
     </div>
   </div>
 </header>
+
+<div id="countdown-bar"></div>
 
 <div class="legend">
   <div class="legend-item"><div class="legend-dot" style="background:var(--wedding)"></div>Queenstown &amp; Wedding</div>
@@ -816,12 +843,12 @@ async function fetchOSRM(stops) {
     const data = await res.json();
     if (!data.routes?.length) throw new Error();
     // GeoJSON coords are [lon, lat] → flip to Leaflet [lat, lon]
-    const pts = data.routes[0].geometry.coordinates.map(([lon, lat]) => [lat, lon]);
-    routeCache[key] = pts;
-    return pts;
+    const pts  = data.routes[0].geometry.coordinates.map(([lon, lat]) => [lat, lon]);
+    const legs = (data.routes[0].legs || []).map(l => ({ dur: l.duration, dist: l.distance }));
+    routeCache[key] = { pts, legs };
+    return { pts, legs };
   } catch {
-    // Fallback: straight lines between waypoints
-    return stops.map(s => [s.lat, s.lon]);
+    return { pts: stops.map(s => [s.lat, s.lon]), legs: [] };
   }
 }
 
@@ -836,23 +863,34 @@ async function renderRoutes() {
   const driveOpts  = (color) => ({ color, weight: 4, opacity: 0.85, lineJoin: 'round', lineCap: 'round' });
   const flightOpts = { color: TC.transit, weight: 2.5, opacity: 0.78, dashArray: '10 8' };
 
-  // Fetch both driving routes in parallel, then draw flight arc
-  const [saLine, naLine] = await Promise.all([
-    sa.length > 1 ? fetchOSRM(sa) : Promise.resolve(null),
-    na.length > 1 ? fetchOSRM(na) : Promise.resolve(null),
+  const [saRes, naRes] = await Promise.all([
+    sa.length > 1 ? fetchOSRM(sa) : Promise.resolve({ pts: null, legs: [] }),
+    na.length > 1 ? fetchOSRM(na) : Promise.resolve({ pts: null, legs: [] }),
   ]);
 
-  if (saLine) L.polyline(saLine, driveOpts(TC.south)).addTo(routeLayer);
+  if (saRes.pts) L.polyline(saRes.pts, driveOpts(TC.south)).addTo(routeLayer);
 
   if (na.length) {
     const transitNZ = stops.find(s => s.type === 'transit' && isNZ(s));
     const arcFrom   = transitNZ || sa[sa.length - 1];
-    if (arcFrom) {
-      L.polyline(arcPoints([arcFrom.lat, arcFrom.lon], [na[0].lat, na[0].lon]), flightOpts).addTo(routeLayer);
-    }
+    if (arcFrom) L.polyline(arcPoints([arcFrom.lat, arcFrom.lon], [na[0].lat, na[0].lon]), flightOpts).addTo(routeLayer);
   }
 
-  if (naLine) L.polyline(naLine, driveOpts(TC.north)).addTo(routeLayer);
+  if (naRes.pts) L.polyline(naRes.pts, driveOpts(TC.north)).addTo(routeLayer);
+
+  // Inject drive times into sidebar dividers
+  function injectTimes(group, legs) {
+    group.forEach((s, i) => {
+      if (i >= group.length - 1 || !legs[i]) return;
+      const el = document.getElementById(`dt-${s.id}-${group[i+1].id}`);
+      if (!el) return;
+      const h = Math.floor(legs[i].dur / 3600);
+      const m = Math.round((legs[i].dur % 3600) / 60);
+      el.querySelector('.drive-label').textContent = h > 0 ? `🚗 ${h}h ${m}m` : `🚗 ${m}m`;
+    });
+  }
+  injectTimes(sa, saRes.legs);
+  injectTimes(na, naRes.legs);
 
   // Keep markers on top of routes
   markerLayer.bringToFront();
@@ -927,7 +965,8 @@ function renderSidebar() {
     if (sec.nzOnly === false) items = items.filter(s => !isNZ(s));
     if (!items.length) return '';
 
-    return `<div class="sec-head ${sec.key}">${sec.label}</div>` + items.map(s => {
+    const isDriveSec = sec.key === 'south' || sec.key === 'north';
+    return `<div class="sec-head ${sec.key}">${sec.label}</div>` + items.map((s, idx) => {
       if (sec.key !== 'transit') n++;
       const num    = sec.key === 'transit' ? '✈' : n;
       const past   = stopStatus(s.dates) === 'past';
@@ -959,13 +998,13 @@ function renderSidebar() {
         <div class="snum" style="background:${pc};color:#fff${isNext ? ';box-shadow:0 0 0 3px rgba(255,107,53,0.35)' : ''}">${num}</div>
         <div class="sinfo">
           <div class="sname">${s.name}${isNext ? '<span class="stag next-tag">▶ Next</span>' : ''}${past ? '<span class="stag done-tag">✓ Done</span>' : ''}${s.type === 'wedding' ? '<span class="wtag">💒</span>' : ''}</div>
-          <div class="sdates">${s.dates}</div>
+          <div class="sdates">${s.dates}<span id="sw-${s.id}" class="sweather"></span></div>
           ${s.accom ? `<div class="saccom">🏠 ${s.accom}</div>` : ''}
           ${!hasDays ? `<div class="snote">${s.notes}</div>` : ''}
           ${isNZ(s) ? `<a href="${navUrl(s)}" target="_blank" rel="noopener" class="nav-btn" onclick="event.stopPropagation()">🧭 Navigate</a>` : ''}
         </div>
         ${hasDays ? `<button class="chev${isOpen ? ' open' : ''}" id="chev-${s.id}" onclick="event.stopPropagation();toggleDays(${s.id})" title="Show daily schedule">▶</button>` : ''}
-      </div>${daysHtml}`;
+      </div>${daysHtml}${isDriveSec && idx < items.length - 1 ? `<div class="drive-div" id="dt-${s.id}-${items[idx+1].id}"><div class="drive-div-line"></div><span class="drive-label">🚗 …</span><div class="drive-div-line"></div></div>` : ''}`;
     }).join('');
   }).join('');
 }
@@ -986,6 +1025,7 @@ function render(refetchRoutes = false) {
   renderMarkers();
   renderSidebar();
   renderRoutes(); // async — updates map when done
+  updateWeather(); // async — fills weather badges when forecast is available
 }
 
 // ── INTERACTIONS ──────────────────────────────────────────────────────────────
@@ -1184,6 +1224,73 @@ function manualRefresh() { syncData(true); }
   });
 })();
 
+// ── COUNTDOWN ─────────────────────────────────────────────────────────────────
+function updateCountdown() {
+  const bar = document.getElementById('countdown-bar');
+  if (!bar) return;
+  const now   = new Date(); now.setHours(0, 0, 0, 0);
+  const start = new Date(2026, 7, 10);  // Aug 10 2026
+  const end   = new Date(2026, 9, 2);   // Oct 2 2026
+  if (now >= end) {
+    bar.textContent = '♥ What a trip — memories forever';
+    return;
+  }
+  if (now >= start) {
+    const dayIn = Math.floor((now - start) / 864e5) + 1;
+    bar.textContent = `✈ Day ${dayIn} in New Zealand — live it up!`;
+    return;
+  }
+  const days = Math.ceil((start - now) / 864e5);
+  bar.textContent = `✈ ${days} day${days !== 1 ? 's' : ''} until New Zealand · Aug 10, 2026`;
+}
+
+// ── WEATHER ───────────────────────────────────────────────────────────────────
+const WMO = {
+  0:'☀️', 1:'🌤️', 2:'⛅', 3:'☁️', 45:'🌫️', 48:'🌫️',
+  51:'🌦️', 53:'🌦️', 55:'🌧️', 61:'🌧️', 63:'🌧️', 65:'🌧️',
+  71:'🌨️', 73:'🌨️', 75:'🌨️', 77:'❄️',
+  80:'🌧️', 81:'🌧️', 82:'🌧️', 85:'🌨️', 86:'🌨️',
+  95:'⛈️', 96:'⛈️', 99:'⛈️',
+};
+const weatherCache = {};
+
+async function fetchWeather(lat, lon) {
+  const key = `${lat.toFixed(2)},${lon.toFixed(2)}`;
+  if (weatherCache[key]) return weatherCache[key];
+  try {
+    const res = await fetch(
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weathercode,temperature_2m_max,temperature_2m_min&forecast_days=14&timezone=Pacific%2FAuckland`,
+      { signal: AbortSignal.timeout(5000) }
+    );
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    weatherCache[key] = data.daily;
+    return data.daily;
+  } catch { return null; }
+}
+
+async function updateWeather() {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  for (const s of stops) {
+    if (!isNZ(s)) continue;
+    const el = document.getElementById(`sw-${s.id}`);
+    if (!el) continue;
+    const start = parseStartDate(s.dates);
+    if (!start) continue;
+    const daysAway = Math.ceil((start - today) / 864e5);
+    if (daysAway > 14 || daysAway < -1) continue;
+    const daily = await fetchWeather(s.lat, s.lon);
+    if (!daily) continue;
+    const targetStr = start.toISOString().split('T')[0];
+    const idx = daily.time.indexOf(targetStr);
+    if (idx === -1) continue;
+    const code = daily.weathercode[idx];
+    const max  = Math.round(daily.temperature_2m_max[idx]);
+    const min  = Math.round(daily.temperature_2m_min[idx]);
+    el.textContent = `${WMO[code] || '🌡️'} ${max}°/${min}°`;
+  }
+}
+
 // ── SERVICE WORKER ────────────────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js');
@@ -1192,6 +1299,8 @@ window.addEventListener('online',  () => syncStatus('Back online — syncing…'
 window.addEventListener('offline', () => syncStatus('Offline — showing cached data'));
 
 // Boot + start polling
+updateCountdown();
+setInterval(updateCountdown, 60_000);
 syncData(true);
 setInterval(syncData, POLL_MS);
 </script>
