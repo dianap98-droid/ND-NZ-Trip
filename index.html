@@ -102,7 +102,17 @@ header h1 span { color: var(--gold); font-style: italic; }
 .wtag     { display: inline-block; background: var(--wedding); color: #fff; font-size: 0.52rem; padding: 1px 4px; border-radius: 2px; letter-spacing: 0.04em; text-transform: uppercase; margin-left: 4px; vertical-align: middle; }
 .stag     { display: inline-block; font-size: 0.52rem; padding: 1px 5px; border-radius: 2px; margin-left: 4px; vertical-align: middle; font-weight: 600; }
 .done-tag { background: #d4f5e0; color: #1a7a3a; }
-.stop-card.done { border-left: 3px solid #34c759; }
+.next-tag { background: #fff0e8; color: #c94a00; }
+.stop-card.done      { border-left: 3px solid #34c759; }
+.stop-card.next-card { border-left: 3px solid #ff6b35; background: #fffaf6; }
+.stop-card.next-card .sname { font-weight: 700; }
+
+@keyframes pulse-next {
+  0%   { box-shadow: 0 0 0 0   rgba(255,107,53,0.75), 0 2px 7px rgba(0,0,0,0.45); }
+  65%  { box-shadow: 0 0 0 13px rgba(255,107,53,0),   0 2px 7px rgba(0,0,0,0.45); }
+  100% { box-shadow: 0 0 0 0   rgba(255,107,53,0),    0 2px 7px rgba(0,0,0,0.45); }
+}
+.mk.next-stop { animation: pulse-next 1.8s ease-out infinite; }
 
 /* ── SIDEBAR TOGGLE (desktop) ── */
 #sidebar-toggle {
@@ -277,6 +287,7 @@ header h1 span { color: var(--gold); font-style: italic; }
   <div class="legend-item"><div class="legend-dot" style="background:var(--transit)"></div>Flights / Transit</div>
   <div class="legend-sep"></div>
   <div class="legend-item"><div class="legend-dot" style="background:#34c759;border:none"></div>היינו ✓</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#ff6b35;border:none"></div>הבא ▶</div>
   <div class="legend-item"><div class="legend-dot" style="background:#ffc300;border:none"></div>עוד לא</div>
 </div>
 
@@ -417,6 +428,15 @@ function parseEndDate(dateStr) {
   return null;
 }
 
+function parseStartDate(dateStr) {
+  if (!dateStr) return null;
+  const parts = dateStr.split(/\s*[–—\-]\s*/);
+  const first = parts[0].trim();
+  const m = /([A-Za-z]{3})\s+(\d{1,2})/.exec(first);
+  if (m && MONTHS[m[1]] !== undefined) return new Date(2026, MONTHS[m[1]], +m[2]);
+  return null;
+}
+
 function stopStatus(dateStr) {
   const d = parseEndDate(dateStr);
   if (!d) return 'upcoming';
@@ -424,10 +444,23 @@ function stopStatus(dateStr) {
   return d < today ? 'past' : 'upcoming';
 }
 
+// Find the id of the next stop: first NZ stop that is current or upcoming
+function findNextId() {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  for (const s of stops) {
+    if (!isNZ(s)) continue;
+    const end = parseEndDate(s.dates);
+    if (!end || end >= today) return s.id;
+  }
+  return null;
+}
+
 const PIN_PAST     = '#34c759'; // iOS green
 const PIN_UPCOMING = '#ffc300'; // amber yellow
+const PIN_NEXT     = '#ff6b35'; // vivid orange — stands out from yellow
 
-function pinColor(s) {
+function pinColor(s, isNext) {
+  if (isNext) return PIN_NEXT;
   return stopStatus(s.dates) === 'past' ? PIN_PAST : PIN_UPCOMING;
 }
 
@@ -610,6 +643,7 @@ async function renderRoutes() {
 // ── RENDER MARKERS ────────────────────────────────────────────────────────────
 function renderMarkers() {
   markerLayer.clearLayers();
+  const nextId = findNextId();
   let n = 0;
   let clickTimer = null;
   ['wedding', 'south', 'transit', 'north'].forEach(type => {
@@ -619,10 +653,12 @@ function renderMarkers() {
       const label  = type === 'wedding' ? '💒' : type === 'transit' ? '✈' : String(n);
       const sz     = type === 'wedding' ? 26 : 20;
       const active = s.id === activeId;
-      const bg   = pinColor(s);
-      const icon = L.divIcon({
-        html: `<div class="mk${active ? ' active' : ''}" style="width:${sz}px;height:${sz}px;background:${bg};font-size:${type === 'wedding' ? 13 : 10}px">${label}</div>`,
-        className: '', iconSize: [sz, sz], iconAnchor: [sz / 2, sz / 2],
+      const isNext = s.id === nextId;
+      const bg     = pinColor(s, isNext);
+      const nsz    = isNext ? sz + 8 : sz;
+      const icon   = L.divIcon({
+        html: `<div class="mk${active ? ' active' : ''}${isNext ? ' next-stop' : ''}" style="width:${nsz}px;height:${nsz}px;background:${bg};font-size:${type === 'wedding' ? 13 : isNext ? 12 : 10}px">${label}</div>`,
+        className: '', iconSize: [nsz, nsz], iconAnchor: [nsz / 2, nsz / 2],
       });
       const m = L.marker([s.lat, s.lon], { icon, zIndexOffset: active ? 1000 : 0 });
       m.on('click', () => {
@@ -639,7 +675,8 @@ function renderMarkers() {
 
 // ── RENDER SIDEBAR ─────────────────────────────────────────────────────────────
 function renderSidebar() {
-  const el = document.getElementById('sidebar-inner');
+  const el     = document.getElementById('sidebar-inner');
+  const nextId = findNextId();
   const secs = [
     { key: 'wedding', label: '💍 Queenstown & Wedding', types: ['wedding'] },
     { key: 'south',   label: '🏔 South Island',          types: ['south'] },
@@ -653,12 +690,13 @@ function renderSidebar() {
     return `<div class="sec-head ${sec.key}">${sec.label}</div>` + items.map(s => {
       if (sec.key !== 'transit') n++;
       const num = sec.key === 'transit' ? '✈' : n;
-      const past = stopStatus(s.dates) === 'past';
-      const pc   = pinColor(s);
-      return `<div class="stop-card${s.id === activeId ? ' active' : ''}${past ? ' done' : ''}" onclick="selectStop(${s.id})" ondblclick="openEdit(${s.id})" title="Double-click to edit">
-        <div class="snum" style="background:${pc};color:${past ? '#fff' : '#1a1a1a'}">${num}</div>
+      const past   = stopStatus(s.dates) === 'past';
+      const isNext = s.id === nextId;
+      const pc     = pinColor(s, isNext);
+      return `<div class="stop-card${s.id === activeId ? ' active' : ''}${past ? ' done' : ''}${isNext ? ' next-card' : ''}" onclick="selectStop(${s.id})" ondblclick="openEdit(${s.id})" title="Double-click to edit">
+        <div class="snum" style="background:${pc};color:#fff${isNext ? ';box-shadow:0 0 0 3px rgba(255,107,53,0.35)' : ''}">${num}</div>
         <div class="sinfo">
-          <div class="sname">${s.name}${past ? '<span class="stag done-tag">✓ היה</span>' : ''}${s.type === 'wedding' ? '<span class="wtag">💒</span>' : ''}</div>
+          <div class="sname">${s.name}${isNext ? '<span class="stag next-tag">▶ הבא</span>' : ''}${past ? '<span class="stag done-tag">✓ היה</span>' : ''}${s.type === 'wedding' ? '<span class="wtag">💒</span>' : ''}</div>
           <div class="sdates">${s.dates}</div>
           ${s.accom ? `<div class="saccom">🏠 ${s.accom}</div>` : ''}
           <div class="snote">${s.notes}</div>
