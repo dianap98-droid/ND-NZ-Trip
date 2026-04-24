@@ -1,4 +1,4 @@
-const SHELL_CACHE = 'nd-nz-shell-v1';
+const SHELL_CACHE = 'nd-nz-shell-v2';
 const TILE_CACHE  = 'nd-nz-tiles-v1';
 const DATA_CACHE  = 'nd-nz-data-v1';
 
