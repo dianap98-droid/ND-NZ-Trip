@@ -286,9 +286,9 @@ header h1 span { color: var(--gold); font-style: italic; }
   <div class="legend-item"><div class="legend-dot" style="background:var(--north)"></div>North Island</div>
   <div class="legend-item"><div class="legend-dot" style="background:var(--transit)"></div>Flights / Transit</div>
   <div class="legend-sep"></div>
-  <div class="legend-item"><div class="legend-dot" style="background:#34c759;border:none"></div>היינו ✓</div>
-  <div class="legend-item"><div class="legend-dot" style="background:#ff6b35;border:none"></div>הבא ▶</div>
-  <div class="legend-item"><div class="legend-dot" style="background:#ffc300;border:none"></div>עוד לא</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#34c759;border:none"></div>Visited ✓</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#ff6b35;border:none"></div>Next ▶</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#ffc300;border:none"></div>Upcoming</div>
 </div>
 
 <div id="app">
@@ -709,7 +709,7 @@ function renderSidebar() {
       return `<div class="stop-card${s.id === activeId ? ' active' : ''}${past ? ' done' : ''}${isNext ? ' next-card' : ''}" onclick="selectStop(${s.id})" ondblclick="openEdit(${s.id})" title="Double-click to edit">
         <div class="snum" style="background:${pc};color:#fff${isNext ? ';box-shadow:0 0 0 3px rgba(255,107,53,0.35)' : ''}">${num}</div>
         <div class="sinfo">
-          <div class="sname">${s.name}${isNext ? '<span class="stag next-tag">▶ הבא</span>' : ''}${past ? '<span class="stag done-tag">✓ היה</span>' : ''}${s.type === 'wedding' ? '<span class="wtag">💒</span>' : ''}</div>
+          <div class="sname">${s.name}${isNext ? '<span class="stag next-tag">▶ Next</span>' : ''}${past ? '<span class="stag done-tag">✓ Done</span>' : ''}${s.type === 'wedding' ? '<span class="wtag">💒</span>' : ''}</div>
           <div class="sdates">${s.dates}</div>
           ${s.accom ? `<div class="saccom">🏠 ${s.accom}</div>` : ''}
           <div class="snote">${s.notes}</div>
