@@ -334,10 +334,21 @@ header h1 span { color: var(--gold); font-style: italic; }
 #countdown-bar {
   background: var(--ink); color: var(--gold);
   font-family: 'Playfair Display', serif; font-style: italic;
-  font-size: 0.82rem; text-align: center;
-  padding: 0.28rem 1rem; border-bottom: 1px solid #2a2a2a;
+  font-size: 0.82rem;
+  padding: 0.28rem 1.2rem; border-bottom: 1px solid #2a2a2a;
   letter-spacing: 0.03em; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
 }
+.clock-pair {
+  display: flex; gap: 1rem; flex-shrink: 0; font-style: normal;
+}
+.clock-item {
+  display: flex; align-items: center; gap: 0.28rem;
+  font-family: 'DM Sans', sans-serif; font-size: 0.72rem;
+}
+.clock-flag { font-size: 0.78rem; }
+.clock-lbl  { opacity: 0.5; font-size: 0.62rem; letter-spacing: 0.05em; }
+.clock-time { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--gold-light); }
 
 /* ── WEATHER BADGE ── */
 .sweather {
@@ -464,7 +475,13 @@ header h1 span { color: var(--gold); font-style: italic; }
   </div>
 </header>
 
-<div id="countdown-bar"></div>
+<div id="countdown-bar">
+  <span id="countdown-text"></span>
+  <div class="clock-pair">
+    <div class="clock-item"><span class="clock-flag">🇮🇱</span><span class="clock-lbl">IL</span><span class="clock-time" id="clk-il"></span></div>
+    <div class="clock-item"><span class="clock-flag">🇳🇿</span><span class="clock-lbl">NZ</span><span class="clock-time" id="clk-nz"></span></div>
+  </div>
+</div>
 
 <div class="legend">
   <div class="legend-item"><div class="legend-dot" style="background:var(--wedding)"></div>Queenstown &amp; Wedding</div>
@@ -1226,22 +1243,30 @@ function manualRefresh() { syncData(true); }
 
 // ── COUNTDOWN ─────────────────────────────────────────────────────────────────
 function updateCountdown() {
-  const bar = document.getElementById('countdown-bar');
-  if (!bar) return;
+  const el = document.getElementById('countdown-text');
+  if (!el) return;
   const now   = new Date(); now.setHours(0, 0, 0, 0);
-  const start = new Date(2026, 7, 10);  // Aug 10 2026
-  const end   = new Date(2026, 9, 2);   // Oct 2 2026
+  const start = new Date(2026, 7, 10);
+  const end   = new Date(2026, 9, 2);
   if (now >= end) {
-    bar.textContent = '♥ What a trip — memories forever';
-    return;
-  }
-  if (now >= start) {
+    el.textContent = '♥ What a trip — memories forever';
+  } else if (now >= start) {
     const dayIn = Math.floor((now - start) / 864e5) + 1;
-    bar.textContent = `✈ Day ${dayIn} in New Zealand — live it up!`;
-    return;
+    el.textContent = `✈ Day ${dayIn} in New Zealand — live it up!`;
+  } else {
+    const days = Math.ceil((start - now) / 864e5);
+    el.textContent = `✈ ${days} day${days !== 1 ? 's' : ''} until New Zealand · Aug 10, 2026`;
   }
-  const days = Math.ceil((start - now) / 864e5);
-  bar.textContent = `✈ ${days} day${days !== 1 ? 's' : ''} until New Zealand · Aug 10, 2026`;
+}
+
+// ── CLOCKS ────────────────────────────────────────────────────────────────────
+function updateClocks() {
+  const now = new Date();
+  const fmt = tz => now.toLocaleTimeString('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit' });
+  const il = document.getElementById('clk-il');
+  const nz = document.getElementById('clk-nz');
+  if (il) il.textContent = fmt('Asia/Jerusalem');
+  if (nz) nz.textContent = fmt('Pacific/Auckland');
 }
 
 // ── WEATHER ───────────────────────────────────────────────────────────────────
@@ -1303,6 +1328,8 @@ window.addEventListener('offline', () => syncStatus('Offline — showing cached 
 // Boot + start polling
 updateCountdown();
 setInterval(updateCountdown, 60_000);
+updateClocks();
+setInterval(updateClocks, 1000);
 syncData(true);
 setInterval(syncData, POLL_MS);
 </script>
