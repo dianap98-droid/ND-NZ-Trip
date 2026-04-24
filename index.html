@@ -47,6 +47,7 @@ header h1 span { color: var(--gold); font-style: italic; }
 .legend::-webkit-scrollbar { height: 0; }
 .legend-item { display: flex; align-items: center; gap: 0.35rem; color: var(--cream); font-size: 0.72rem; white-space: nowrap; }
 .legend-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.legend-sep { width: 1px; background: rgba(255,255,255,0.2); height: 16px; margin: 0 0.2rem; flex-shrink: 0; }
 
 /* ── MAIN LAYOUT ── */
 #app { flex: 1; display: flex; overflow: hidden; position: relative; min-height: 0; }
@@ -98,7 +99,10 @@ header h1 span { color: var(--gold); font-style: italic; }
 .sdates { font-size: 0.68rem; color: #999; margin: 0.1rem 0; }
 .snote  { font-size: 0.7rem; color: #666; line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .saccom { font-size: 0.66rem; color: #b07d2a; margin: 0.1rem 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.wtag   { display: inline-block; background: var(--wedding); color: #fff; font-size: 0.52rem; padding: 1px 4px; border-radius: 2px; letter-spacing: 0.04em; text-transform: uppercase; margin-left: 4px; vertical-align: middle; }
+.wtag     { display: inline-block; background: var(--wedding); color: #fff; font-size: 0.52rem; padding: 1px 4px; border-radius: 2px; letter-spacing: 0.04em; text-transform: uppercase; margin-left: 4px; vertical-align: middle; }
+.stag     { display: inline-block; font-size: 0.52rem; padding: 1px 5px; border-radius: 2px; margin-left: 4px; vertical-align: middle; font-weight: 600; }
+.done-tag { background: #d4f5e0; color: #1a7a3a; }
+.stop-card.done { border-left: 3px solid #34c759; }
 
 /* ── SIDEBAR TOGGLE (desktop) ── */
 #sidebar-toggle {
@@ -271,6 +275,9 @@ header h1 span { color: var(--gold); font-style: italic; }
   <div class="legend-item"><div class="legend-dot" style="background:var(--south)"></div>South Island</div>
   <div class="legend-item"><div class="legend-dot" style="background:var(--north)"></div>North Island</div>
   <div class="legend-item"><div class="legend-dot" style="background:var(--transit)"></div>Flights / Transit</div>
+  <div class="legend-sep"></div>
+  <div class="legend-item"><div class="legend-dot" style="background:#34c759;border:none"></div>היינו ✓</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#ffc300;border:none"></div>עוד לא</div>
 </div>
 
 <div id="app">
@@ -386,6 +393,42 @@ function lookupCoords(overnight) {
     if (key.includes(k) || k.includes(key)) return v;
   }
   return null;
+}
+
+// ── DATE STATUS ───────────────────────────────────────────────────────────────
+const MONTHS = { Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11 };
+
+function parseEndDate(dateStr) {
+  if (!dateStr) return null;
+  const YEAR = 2026;
+  // Split on dash/en-dash: "Aug 12 – Sep 3" or "Aug 12 – 22" or "Aug 12"
+  const parts = dateStr.split(/\s*[–—\-]\s*/);
+  const last  = parts[parts.length - 1].trim();
+
+  // "Sep 3"
+  let m = /([A-Za-z]{3})\s+(\d{1,2})/.exec(last);
+  if (m && MONTHS[m[1]] !== undefined) return new Date(YEAR, MONTHS[m[1]], +m[2]);
+
+  // just a day number "22" — use month from first part
+  if (/^\d{1,2}$/.test(last) && parts.length > 1) {
+    const fm = /([A-Za-z]{3})\s+(\d{1,2})/.exec(parts[0]);
+    if (fm && MONTHS[fm[1]] !== undefined) return new Date(YEAR, MONTHS[fm[1]], +last);
+  }
+  return null;
+}
+
+function stopStatus(dateStr) {
+  const d = parseEndDate(dateStr);
+  if (!d) return 'upcoming';
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  return d < today ? 'past' : 'upcoming';
+}
+
+const PIN_PAST     = '#34c759'; // iOS green
+const PIN_UPCOMING = '#ffc300'; // amber yellow
+
+function pinColor(s) {
+  return stopStatus(s.dates) === 'past' ? PIN_PAST : PIN_UPCOMING;
 }
 
 // ── CSV PARSER ────────────────────────────────────────────────────────────────
@@ -576,8 +619,9 @@ function renderMarkers() {
       const label  = type === 'wedding' ? '💒' : type === 'transit' ? '✈' : String(n);
       const sz     = type === 'wedding' ? 26 : 20;
       const active = s.id === activeId;
+      const bg   = pinColor(s);
       const icon = L.divIcon({
-        html: `<div class="mk${active ? ' active' : ''}" style="width:${sz}px;height:${sz}px;background:${TC[type]};font-size:${type === 'wedding' ? 13 : 10}px">${label}</div>`,
+        html: `<div class="mk${active ? ' active' : ''}" style="width:${sz}px;height:${sz}px;background:${bg};font-size:${type === 'wedding' ? 13 : 10}px">${label}</div>`,
         className: '', iconSize: [sz, sz], iconAnchor: [sz / 2, sz / 2],
       });
       const m = L.marker([s.lat, s.lon], { icon, zIndexOffset: active ? 1000 : 0 });
@@ -609,10 +653,12 @@ function renderSidebar() {
     return `<div class="sec-head ${sec.key}">${sec.label}</div>` + items.map(s => {
       if (sec.key !== 'transit') n++;
       const num = sec.key === 'transit' ? '✈' : n;
-      return `<div class="stop-card${s.id === activeId ? ' active' : ''}" onclick="selectStop(${s.id})" ondblclick="openEdit(${s.id})" title="Double-click to edit">
-        <div class="snum ${s.type}">${num}</div>
+      const past = stopStatus(s.dates) === 'past';
+      const pc   = pinColor(s);
+      return `<div class="stop-card${s.id === activeId ? ' active' : ''}${past ? ' done' : ''}" onclick="selectStop(${s.id})" ondblclick="openEdit(${s.id})" title="Double-click to edit">
+        <div class="snum" style="background:${pc};color:${past ? '#fff' : '#1a1a1a'}">${num}</div>
         <div class="sinfo">
-          <div class="sname">${s.name}${s.type === 'wedding' ? '<span class="wtag">💒</span>' : ''}</div>
+          <div class="sname">${s.name}${past ? '<span class="stag done-tag">✓ היה</span>' : ''}${s.type === 'wedding' ? '<span class="wtag">💒</span>' : ''}</div>
           <div class="sdates">${s.dates}</div>
           ${s.accom ? `<div class="saccom">🏠 ${s.accom}</div>` : ''}
           <div class="snote">${s.notes}</div>
