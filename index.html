@@ -407,34 +407,47 @@ function lookupCoords(overnight) {
 }
 
 // ── DATE STATUS ───────────────────────────────────────────────────────────────
-const MONTHS = { Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11 };
+// Handles both "Aug" and "August" — full and abbreviated month names
+const MONTHS = {
+  Jan:0, January:0, Feb:1, February:1, Mar:2, March:2,
+  Apr:3, April:3,   May:4, Jun:5, June:5, Jul:6, July:6,
+  Aug:7, August:7,  Sep:8, September:8, Oct:9, October:9,
+  Nov:10, November:10, Dec:11, December:11
+};
+
+function parseDateToken(str) {
+  str = (str || '').trim();
+  let m;
+  // "11 August 2026" or "11 Aug"  (day first)
+  m = /^(\d{1,2})\s+([A-Za-z]+)/.exec(str);
+  if (m && MONTHS[m[2]] !== undefined) return new Date(2026, MONTHS[m[2]], +m[1]);
+  // "Aug 11" or "August 11"  (month first)
+  m = /^([A-Za-z]+)\s+(\d{1,2})/.exec(str);
+  if (m && MONTHS[m[1]] !== undefined) return new Date(2026, MONTHS[m[1]], +m[2]);
+  return null;
+}
+
+function splitRange(dateStr) {
+  return (dateStr || '').split(/\s*[–—]\s*|\s+-\s+/);
+}
 
 function parseEndDate(dateStr) {
   if (!dateStr) return null;
-  const YEAR = 2026;
-  // Split on dash/en-dash: "Aug 12 – Sep 3" or "Aug 12 – 22" or "Aug 12"
-  const parts = dateStr.split(/\s*[–—\-]\s*/);
+  const parts = splitRange(dateStr);
   const last  = parts[parts.length - 1].trim();
-
-  // "Sep 3"
-  let m = /([A-Za-z]{3})\s+(\d{1,2})/.exec(last);
-  if (m && MONTHS[m[1]] !== undefined) return new Date(YEAR, MONTHS[m[1]], +m[2]);
-
-  // just a day number "22" — use month from first part
+  let d = parseDateToken(last);
+  if (d) return d;
+  // bare day number "22" — borrow month from start part
   if (/^\d{1,2}$/.test(last) && parts.length > 1) {
-    const fm = /([A-Za-z]{3})\s+(\d{1,2})/.exec(parts[0]);
-    if (fm && MONTHS[fm[1]] !== undefined) return new Date(YEAR, MONTHS[fm[1]], +last);
+    const start = parseDateToken(parts[0]);
+    if (start) return new Date(2026, start.getMonth(), +last);
   }
   return null;
 }
 
 function parseStartDate(dateStr) {
   if (!dateStr) return null;
-  const parts = dateStr.split(/\s*[–—\-]\s*/);
-  const first = parts[0].trim();
-  const m = /([A-Za-z]{3})\s+(\d{1,2})/.exec(first);
-  if (m && MONTHS[m[1]] !== undefined) return new Date(2026, MONTHS[m[1]], +m[2]);
-  return null;
+  return parseDateToken(splitRange(dateStr)[0]);
 }
 
 function stopStatus(dateStr) {
