@@ -20,13 +20,14 @@
 }
 
 html, body { height: 100%; overflow: hidden; }
-html { background: var(--ink); } /* Dynamic Island / notch area blends with header */
-body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--ink); display: flex; flex-direction: column; padding-top: env(safe-area-inset-top); }
+html { background: var(--ink); }
+body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--ink); display: flex; flex-direction: column; }
 
 /* ── HEADER ── */
 header {
   background: var(--ink); color: var(--cream);
-  padding: 0 1.5rem; height: 66px;
+  padding: env(safe-area-inset-top) 1.5rem 0;
+  height: calc(66px + env(safe-area-inset-top));
   display: flex; align-items: center; justify-content: space-between;
   border-bottom: 3px solid var(--gold); flex-shrink: 0; z-index: 1000;
 }
@@ -358,10 +359,8 @@ header h1 span { color: var(--gold); font-style: italic; }
 @media (max-width: 768px) {
   /* Header: single row, no wrapping */
   header {
-    height: 52px; padding: 0 0.85rem;
-    /* safe area for Dynamic Island / notch */
-    padding-left:  max(0.85rem, env(safe-area-inset-left));
-    padding-right: max(0.85rem, env(safe-area-inset-right));
+    height: calc(52px + env(safe-area-inset-top));
+    padding: env(safe-area-inset-top) max(0.85rem, env(safe-area-inset-right)) 0 max(0.85rem, env(safe-area-inset-left));
   }
   header h1 { font-size: 1.15rem; line-height: 1; }
   .header-sub { display: none; }          /* hide date range — saves space */
