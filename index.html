@@ -1178,6 +1178,13 @@ function manualRefresh() { syncData(true); }
   });
 })();
 
+// ── SERVICE WORKER ────────────────────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js');
+}
+window.addEventListener('online',  () => syncStatus('Back online — syncing…') || syncData(true));
+window.addEventListener('offline', () => syncStatus('Offline — showing cached data'));
+
 // Boot + start polling
 syncData(true);
 setInterval(syncData, POLL_MS);
