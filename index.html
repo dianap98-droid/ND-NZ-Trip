@@ -559,7 +559,15 @@ function buildStops(rows) {
     const accom = (r[3] || '').trim();
     const cancel= (r[4] || '').trim();
     const food  = (r[5] || '').trim();
-    if (!over) continue;
+    if (!over) {
+      // Detect a flight row (empty overnight, "flight" in accom or "fly to" in notes)
+      if (/flight/i.test(accom) || /\bfly\b.{1,30}(auckland|north)/i.test(notes)) {
+        if (cur) groups.push(cur);
+        cur = { overnight: 'Queenstown → Auckland', accom, firstDate: date, lastDate: date,
+                notesList: notes ? [notes] : [], food: food ? [food] : [], cancel, synthetic: 'transit' };
+      }
+      continue;
+    }
     if (cur && cur.overnight.toLowerCase() === over.toLowerCase()) {
       if (notes) cur.notesList.push(notes);
       if (food && !cur.food.includes(food)) cur.food.push(food);
@@ -572,7 +580,7 @@ function buildStops(rows) {
   }
   if (cur) groups.push(cur);
   return groups.map((g, i) => {
-    const coords = lookupCoords(g.overnight);
+    const coords = g.synthetic ? [168.7389, -45.0210, g.synthetic] : lookupCoords(g.overnight);
     const [lon, lat, type] = coords || [172.0, -41.5, 'south'];
     const dateStr = g.firstDate === g.lastDate ? g.firstDate : `${g.firstDate} – ${g.lastDate}`;
     return {
