@@ -274,9 +274,12 @@ header h1 span { color: var(--gold); font-style: italic; }
       <div class="header-sub">New Zealand · Aug 10 – Oct 2, 2026</div>
     </div>
   </div>
-  <div style="text-align:right">
+  <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:0.2rem">
     <div class="header-tagline">7.5 weeks · 2 islands · 1 wedding</div>
-    <div class="header-hint">Hover pin to preview · Double-click to edit · Scroll to zoom</div>
+    <div style="display:flex;align-items:center;gap:0.5rem">
+      <span id="sync-label" style="font-size:0.65rem;color:var(--gold-light);opacity:0.45;transition:opacity 0.4s">Loading…</span>
+      <button onclick="manualRefresh()" title="Refresh from Google Sheets" style="background:none;border:1.5px solid rgba(201,168,76,0.4);border-radius:5px;color:var(--gold);font-size:0.7rem;padding:0.18rem 0.5rem;cursor:pointer;font-family:'DM Sans',sans-serif;transition:border-color 0.15s" onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='rgba(201,168,76,0.4)'">⟳ Refresh</button>
+    </div>
   </div>
 </header>
 
@@ -826,29 +829,70 @@ document.getElementById('modal-overlay').addEventListener('mousedown', function(
   if (e.target === this) closeModal();
 });
 
-// ── BOOT ──────────────────────────────────────────────────────────────────────
-async function boot() {
+// ── LIVE SYNC ─────────────────────────────────────────────────────────────────
+const POLL_MS  = 2 * 60 * 1000; // re-check every 2 minutes
+let   lastCSV  = '';             // raw text of last successful fetch
+let   mapFit   = false;          // fit bounds only once
+
+function syncStatus(msg, dim = false) {
+  const el = document.getElementById('sync-label');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.opacity = dim ? '0.45' : '0.85';
+}
+
+async function fetchCSV() {
+  // cache-bust so we always get the latest version of the sheet
+  const res = await fetch(`${CSV_URL}&_v=${Date.now()}`, { cache: 'no-store' });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res.text();
+}
+
+async function syncData(isManual = false) {
+  if (isManual) syncStatus('Refreshing…');
+  let text;
   try {
-    const res = await fetch(CSV_URL);
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const rows = parseCSV(await res.text());
-    stops  = buildStops(rows);
-    nextId = stops.length + 1;
+    text = await fetchCSV();
   } catch(e) {
     console.warn('Sheet fetch failed:', e);
-    stops = [];
+    syncStatus('⚠ Offline', false);
+    return;
   }
-  // Fit map to show all NZ stops with padding
-  const nzStops = stops.filter(isNZ);
-  if (nzStops.length) {
-    map.fitBounds(
-      L.latLngBounds(nzStops.map(s => [s.lat, s.lon])),
-      { padding: [44, 44], maxZoom: 7 }
-    );
+
+  const changed = text !== lastCSV;
+  if (changed) {
+    lastCSV = text;
+    const rows = parseCSV(text);
+    stops  = buildStops(rows);
+    nextId = stops.length + 1;
+    clearRouteCache();
+
+    // Fit bounds once on first load
+    if (!mapFit) {
+      const nzStops = stops.filter(isNZ);
+      if (nzStops.length) {
+        map.fitBounds(
+          L.latLngBounds(nzStops.map(s => [s.lat, s.lon])),
+          { padding: [44, 44], maxZoom: 7 }
+        );
+      }
+      mapFit = true;
+    }
+    render(false);
   }
-  render();
+
+  // Status message
+  const now  = new Date();
+  const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  syncStatus(changed ? `✓ Updated ${time}` : `✓ ${time}`, true);
 }
-boot();
+
+// Manual refresh button
+function manualRefresh() { syncData(true); }
+
+// Boot + start polling
+syncData(true);
+setInterval(syncData, POLL_MS);
 </script>
 </body>
 </html>
