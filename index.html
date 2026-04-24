@@ -110,16 +110,63 @@ header h1 span { color: var(--gold); font-style: italic; }
         font-size:0.68rem; padding:2px 0 2px 5px; align-self:center;
         transition:transform 0.2s, color 0.15s; line-height:1; }
 .chev.open { transform:rotate(90deg); color:var(--gold); }
-.days-list { display:none; background:#fafaf8; border-bottom:1px solid #ececea; }
-.days-list.open { display:block; }
-.day-row { padding:0.33rem 0.9rem 0.33rem 2.6rem; border-bottom:1px solid #f3f3f0; }
-.day-row:last-child { border-bottom:none; }
-.day-row.today-row { background:rgba(255,107,53,0.08); }
-.day-row.past-row  { opacity:0.52; }
-.day-dt  { font-size:0.6rem; font-weight:700; color:#bbb; text-transform:uppercase;
-           letter-spacing:0.04em; margin-bottom:0.06rem; }
-.day-row.today-row .day-dt { color:#ff6b35; }
-.day-acts-txt { font-size:0.69rem; color:#555; line-height:1.38; }
+
+/* ── TIMELINE ── */
+.days-list {
+  display: none;
+  position: relative;
+  background: #f5f2ec;
+  border-bottom: 1px solid #e8e2d8;
+  padding: 0.3rem 0;
+}
+.days-list.open { display: block; }
+
+/* Vertical line */
+.days-list::before {
+  content: '';
+  position: absolute;
+  left: 1.55rem;
+  top: 0.55rem; bottom: 0.55rem;
+  width: 2px;
+  background: linear-gradient(to bottom, #d8d0c4, #e8e2d8);
+  border-radius: 1px;
+}
+
+.day-row {
+  position: relative;
+  padding: 0.42rem 0.9rem 0.42rem 3rem;
+}
+
+/* Timeline dot */
+.day-row::before {
+  content: '';
+  position: absolute;
+  left: calc(1.55rem - 4px);
+  top: 0.62rem;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: #c8c0b4;
+  border: 2px solid #f5f2ec;
+  z-index: 1;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+.day-row.past-row::before  { background: #34c759; border-color: #f5f2ec; }
+.day-row.today-row::before {
+  background: #ff6b35;
+  border-color: #f5f2ec;
+  box-shadow: 0 0 0 3px rgba(255,107,53,0.22);
+}
+.day-row.past-row  { opacity: 0.6; }
+.day-row.today-row { background: rgba(255,107,53,0.06); border-radius: 4px; }
+
+.day-dt {
+  font-size: 0.62rem; font-weight: 700;
+  color: #aaa; text-transform: uppercase; letter-spacing: 0.06em;
+  margin-bottom: 0.1rem;
+}
+.day-row.today-row .day-dt { color: #ff6b35; }
+.day-row.past-row  .day-dt { color: #34c759; }
+.day-acts-txt { font-size: 0.7rem; color: #4a4a4a; line-height: 1.42; }
 
 /* Navigate button — sidebar */
 .nav-btn {
