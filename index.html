@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Diana & Nikita – New Zealand 2026</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
@@ -17,7 +17,8 @@
 }
 
 html, body { height: 100%; overflow: hidden; }
-body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--ink); display: flex; flex-direction: column; }
+html { background: var(--ink); } /* Dynamic Island / notch area blends with header */
+body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--ink); display: flex; flex-direction: column; padding-top: env(safe-area-inset-top); }
 
 /* ── HEADER ── */
 header {
@@ -393,11 +394,21 @@ header h1 span { color: var(--gold); font-style: italic; }
   #mob-overlay.visible { display: block; }
   #route-legend { display: none; }
 
-  .add-btn { padding: 0.42rem 0.8rem; font-size: 0.74rem; bottom: max(0.6rem, env(safe-area-inset-bottom)); right: 0.6rem; }
+  .add-btn {
+    padding: 0.42rem 0.8rem; font-size: 0.74rem;
+    bottom: max(0.75rem, env(safe-area-inset-bottom));
+    right:  max(0.75rem, env(safe-area-inset-right));
+  }
 
   /* Layer switcher: icon + short label, horizontal */
   .layer-switcher { flex-direction: row; gap: 2px; padding: 3px; }
   .lbtn { padding: 0.2rem 0.38rem; font-size: 0.58rem; }
+
+  /* Nav button full-width with bottom safe area */
+  .nav-btn { width: 100%; text-align: center; }
+
+  /* Modal: never overlap Dynamic Island */
+  #modal-box { margin-top: env(safe-area-inset-top); }
 }
 </style>
 </head>
