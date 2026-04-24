@@ -346,7 +346,7 @@ header h1 span { color: var(--gold); font-style: italic; }
   display: flex; align-items: center; gap: 0.28rem;
   font-family: 'DM Sans', sans-serif; font-size: 0.72rem;
 }
-.clock-flag { font-size: 0.78rem; }
+.clock-dot  { display: inline-block; width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 .clock-lbl  { opacity: 0.5; font-size: 0.62rem; letter-spacing: 0.05em; }
 .clock-time { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--gold-light); }
 
@@ -478,8 +478,8 @@ header h1 span { color: var(--gold); font-style: italic; }
 <div id="countdown-bar">
   <span id="countdown-text"></span>
   <div class="clock-pair">
-    <div class="clock-item"><span class="clock-lbl">🕐 IL</span><span class="clock-time" id="clk-il"></span></div>
-    <div class="clock-item"><span class="clock-lbl">🕐 NZ</span><span class="clock-time" id="clk-nz"></span></div>
+    <div class="clock-item"><span class="clock-dot" style="background:#4a90d9"></span><span class="clock-lbl">IL</span><span class="clock-time" id="clk-il"></span></div>
+    <div class="clock-item"><span class="clock-dot" style="background:#5aba6a"></span><span class="clock-lbl">NZ</span><span class="clock-time" id="clk-nz"></span></div>
   </div>
 </div>
 
