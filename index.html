@@ -502,17 +502,51 @@ function arcPoints(from, to, steps = 32) {
   return pts;
 }
 
-// ── RENDER ROUTES ─────────────────────────────────────────────────────────────
-function renderRoutes() {
+// ── OSRM ROUTING ─────────────────────────────────────────────────────────────
+// Cache so we don't re-fetch on every marker click
+const routeCache = {};
+
+async function fetchOSRM(stops) {
+  if (stops.length < 2) return stops.map(s => [s.lat, s.lon]);
+  const key = stops.map(s => `${s.lon},${s.lat}`).join('|');
+  if (routeCache[key]) return routeCache[key];
+  const coords = stops.map(s => `${s.lon},${s.lat}`).join(';');
+  try {
+    const res = await fetch(
+      `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`,
+      { signal: AbortSignal.timeout(8000) }
+    );
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    if (!data.routes?.length) throw new Error();
+    // GeoJSON coords are [lon, lat] → flip to Leaflet [lat, lon]
+    const pts = data.routes[0].geometry.coordinates.map(([lon, lat]) => [lat, lon]);
+    routeCache[key] = pts;
+    return pts;
+  } catch {
+    // Fallback: straight lines between waypoints
+    return stops.map(s => [s.lat, s.lon]);
+  }
+}
+
+function clearRouteCache() { Object.keys(routeCache).forEach(k => delete routeCache[k]); }
+
+// ── RENDER ROUTES (async) ─────────────────────────────────────────────────────
+async function renderRoutes() {
   routeLayer.clearLayers();
   const sa = stops.filter(s => (s.type === 'south' || s.type === 'wedding') && isNZ(s));
   const na = stops.filter(s => s.type === 'north' && isNZ(s));
 
-  const driveOpts  = (color) => ({ color, weight: 3.5, opacity: 0.85, lineJoin: 'round', lineCap: 'round' });
-  const flightOpts = { color: TC.transit, weight: 2.5, opacity: 0.75, dashArray: '10 9' };
+  const driveOpts  = (color) => ({ color, weight: 4, opacity: 0.85, lineJoin: 'round', lineCap: 'round' });
+  const flightOpts = { color: TC.transit, weight: 2.5, opacity: 0.78, dashArray: '10 8' };
 
-  if (sa.length > 1)
-    L.polyline(sa.map(s => [s.lat, s.lon]), driveOpts(TC.south)).addTo(routeLayer);
+  // Fetch both driving routes in parallel, then draw flight arc
+  const [saLine, naLine] = await Promise.all([
+    sa.length > 1 ? fetchOSRM(sa) : Promise.resolve(null),
+    na.length > 1 ? fetchOSRM(na) : Promise.resolve(null),
+  ]);
+
+  if (saLine) L.polyline(saLine, driveOpts(TC.south)).addTo(routeLayer);
 
   if (sa.length && na.length) {
     const from = [sa[sa.length - 1].lat, sa[sa.length - 1].lon];
@@ -520,8 +554,10 @@ function renderRoutes() {
     L.polyline(arcPoints(from, to), flightOpts).addTo(routeLayer);
   }
 
-  if (na.length > 1)
-    L.polyline(na.map(s => [s.lat, s.lon]), driveOpts(TC.north)).addTo(routeLayer);
+  if (naLine) L.polyline(naLine, driveOpts(TC.north)).addTo(routeLayer);
+
+  // Keep markers on top of routes
+  markerLayer.bringToFront();
 }
 
 // ── RENDER MARKERS ────────────────────────────────────────────────────────────
@@ -582,14 +618,21 @@ function renderSidebar() {
   }).join('');
 }
 
-function render() { renderRoutes(); renderMarkers(); renderSidebar(); }
+// render() shows markers + sidebar immediately; routes load async in background
+function render(refetchRoutes = false) {
+  if (refetchRoutes) clearRouteCache();
+  renderMarkers();
+  renderSidebar();
+  renderRoutes(); // async — updates map when done
+}
 
 // ── INTERACTIONS ──────────────────────────────────────────────────────────────
 function selectStop(id) {
   activeId = id;
   const s = stops.find(x => x.id === id);
   if (s && isNZ(s)) map.panTo([s.lat, s.lon], { animate: true });
-  render();
+  renderMarkers();   // instant
+  renderSidebar();   // instant
   setTimeout(() => {
     const c = document.querySelector('.stop-card.active');
     if (c) c.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -664,14 +707,14 @@ function doSave() {
   };
   if (editingId) { const i = stops.findIndex(s => s.id === editingId); stops[i] = { ...stops[i], ...data }; }
   else stops.push({ id: nextId++, ...data });
-  closeModal(); render();
+  closeModal(); render(true); // true = refetch routes with new stops
 }
 function doDelete() {
   if (!editingId) return;
   if (!confirm(`Remove "${stops.find(s => s.id === editingId)?.name}"?`)) return;
   stops = stops.filter(s => s.id !== editingId);
   if (activeId === editingId) activeId = null;
-  closeModal(); render();
+  closeModal(); render(true);
 }
 document.getElementById('modal-overlay').addEventListener('mousedown', function(e) {
   if (e.target === this) closeModal();
