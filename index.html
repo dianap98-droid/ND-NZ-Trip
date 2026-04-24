@@ -105,6 +105,22 @@ header h1 span { color: var(--gold); font-style: italic; }
 .next-tag { background: #fff0e8; color: #c94a00; }
 .stop-card.done      { border-left: 3px solid #34c759; }
 
+/* Daily schedule chevron + list */
+.chev { flex-shrink:0; background:none; border:none; cursor:pointer; color:#ccc;
+        font-size:0.68rem; padding:2px 0 2px 5px; align-self:center;
+        transition:transform 0.2s, color 0.15s; line-height:1; }
+.chev.open { transform:rotate(90deg); color:var(--gold); }
+.days-list { display:none; background:#fafaf8; border-bottom:1px solid #ececea; }
+.days-list.open { display:block; }
+.day-row { padding:0.33rem 0.9rem 0.33rem 2.6rem; border-bottom:1px solid #f3f3f0; }
+.day-row:last-child { border-bottom:none; }
+.day-row.today-row { background:rgba(255,107,53,0.08); }
+.day-row.past-row  { opacity:0.52; }
+.day-dt  { font-size:0.6rem; font-weight:700; color:#bbb; text-transform:uppercase;
+           letter-spacing:0.04em; margin-bottom:0.06rem; }
+.day-row.today-row .day-dt { color:#ff6b35; }
+.day-acts-txt { font-size:0.69rem; color:#555; line-height:1.38; }
+
 /* Navigate button — sidebar */
 .nav-btn {
   display: none; /* desktop: hidden */
@@ -552,7 +568,8 @@ function parseCSV(text) {
 function buildStops(rows) {
   const data = rows.slice(1).filter(r => r.length >= 3);
   const groups = [];
-  let cur = null;
+  let curStop = null, curDay = null;
+
   for (const r of data) {
     const date  = (r[0] || '').trim();
     const notes = (r[1] || '').trim();
@@ -560,34 +577,61 @@ function buildStops(rows) {
     const accom = (r[3] || '').trim();
     const cancel= (r[4] || '').trim();
     const food  = (r[5] || '').trim();
+
     if (!over) {
-      // Detect a flight row (empty overnight, "flight" in accom or "fly to" in notes)
+      // Flight row → synthetic transit stop
       if (/flight/i.test(accom) || /\bfly\b.{1,30}(auckland|north)/i.test(notes)) {
-        if (cur) groups.push(cur);
-        cur = { overnight: 'Queenstown → Auckland', accom, firstDate: date, lastDate: date,
-                notesList: notes ? [notes] : [], food: food ? [food] : [], cancel, synthetic: 'transit' };
+        if (curStop) groups.push(curStop);
+        curDay  = { date, activities: notes ? [notes] : [] };
+        curStop = { overnight: 'Queenstown → Auckland', accom, firstDate: date, lastDate: date,
+                    days: [curDay], food: [], cancel: '', synthetic: 'transit' };
+      } else if (curStop) {
+        // Continuation of current stop — same or new day
+        if (date && curDay?.date !== date) {
+          curDay = { date, activities: notes ? [notes] : [] };
+          curStop.days.push(curDay);
+          curStop.lastDate = date;
+        } else if (curDay && notes) {
+          curDay.activities.push(notes);
+        }
+        if (food && !curStop.food.includes(food)) curStop.food.push(food);
+        if (cancel) curStop.cancel = cancel;
       }
       continue;
     }
-    if (cur && cur.overnight.toLowerCase() === over.toLowerCase()) {
-      if (notes) cur.notesList.push(notes);
-      if (food && !cur.food.includes(food)) cur.food.push(food);
-      if (cancel) cur.cancel = cancel;
-      cur.lastDate = date;
+
+    if (curStop && curStop.overnight.toLowerCase() === over.toLowerCase()) {
+      // Same stop, possibly a new day
+      if (date && curDay?.date !== date) {
+        curDay = { date, activities: notes ? [notes] : [] };
+        curStop.days.push(curDay);
+        curStop.lastDate = date;
+      } else if (curDay && notes) {
+        curDay.activities.push(notes);
+      }
+      if (food && !curStop.food.includes(food)) curStop.food.push(food);
+      if (cancel) curStop.cancel = cancel;
+      if (accom && !curStop.accom) curStop.accom = accom;
     } else {
-      if (cur) groups.push(cur);
-      cur = { overnight: over, accom, firstDate: date, lastDate: date, notesList: notes ? [notes] : [], food: food ? [food] : [], cancel };
+      // New stop
+      if (curStop) groups.push(curStop);
+      curDay  = { date, activities: notes ? [notes] : [] };
+      curStop = { overnight: over, accom, firstDate: date, lastDate: date,
+                  days: [curDay], food: food ? [food] : [], cancel };
     }
   }
-  if (cur) groups.push(cur);
+  if (curStop) groups.push(curStop);
+
   return groups.map((g, i) => {
     const coords = g.synthetic ? [168.7389, -45.0210, g.synthetic] : lookupCoords(g.overnight);
     const [lon, lat, type] = coords || [172.0, -41.5, 'south'];
     const dateStr = g.firstDate === g.lastDate ? g.firstDate : `${g.firstDate} – ${g.lastDate}`;
+    const allActs = g.days.flatMap(d => d.activities).filter(Boolean);
     return {
       id: i + 1, name: g.overnight, dates: dateStr, type, lon, lat,
       accom: g.accom, cancel: g.cancel,
-      notes: [g.notesList.join(' · '), g.food.length ? '🍴 ' + g.food.join(', ') : ''].filter(Boolean).join('  '),
+      days: g.days,
+      notes: allActs.slice(0, 3).join(' · ') + (allActs.length > 3 ? ' …' : ''),
     };
   });
 }
@@ -595,6 +639,7 @@ function buildStops(rows) {
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let stops = [], nextId = 1, activeId = null, editingId = null;
 let desktopOpen = true;
+const openDays = new Set();
 const TC = { wedding: '#c94a4a', south: '#4a7c6f', north: '#7c4a6f', transit: '#4a6f7c' };
 const isNZ = s => s.lon > 160 && s.lon < 180;
 
@@ -749,16 +794,34 @@ function renderMarkers() {
   });
 }
 
+// ── DATE HELPERS FOR DAY ROWS ─────────────────────────────────────────────────
+function fmtDayDate(str) {
+  const d = parseDateToken(str);
+  if (!d) return str;
+  const wd = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${wd[d.getDay()]}  ${d.getDate()} ${mo[d.getMonth()]}`;
+}
+function dayStatus(str) {
+  const d = parseDateToken(str);
+  if (!d) return 'upcoming';
+  const today = new Date(); today.setHours(0,0,0,0);
+  if (d.getTime() === today.getTime()) return 'today';
+  return d < today ? 'past' : 'upcoming';
+}
+
 // ── RENDER SIDEBAR ─────────────────────────────────────────────────────────────
 function renderSidebar() {
-  const el     = document.getElementById('sidebar-inner');
-  const nextId = findNextId();
+  const el  = document.getElementById('sidebar-inner');
+  const nid = findNextId();
+  if (nid) openDays.add(nid);          // always keep "next" stop expanded
+
   const secs = [
-    { key: 'transit', label: '✈️ Outbound Flight',        types: ['transit'], nzOnly: false },
-    { key: 'wedding', label: '💍 Queenstown & Wedding',   types: ['wedding'] },
-    { key: 'south',   label: '🏔 South Island',           types: ['south'] },
-    { key: 'transit', label: '✈️ Fly to North Island',    types: ['transit'], nzOnly: true },
-    { key: 'north',   label: '🌿 North Island',            types: ['north'] },
+    { key: 'transit', label: '✈️ Outbound Flight',      types: ['transit'], nzOnly: false },
+    { key: 'wedding', label: '💍 Queenstown & Wedding', types: ['wedding'] },
+    { key: 'south',   label: '🏔 South Island',         types: ['south'] },
+    { key: 'transit', label: '✈️ Fly to North Island',  types: ['transit'], nzOnly: true },
+    { key: 'north',   label: '🌿 North Island',          types: ['north'] },
   ];
   let n = 0;
   el.innerHTML = secs.map(sec => {
@@ -766,24 +829,55 @@ function renderSidebar() {
     if (sec.nzOnly === true)  items = items.filter(s =>  isNZ(s));
     if (sec.nzOnly === false) items = items.filter(s => !isNZ(s));
     if (!items.length) return '';
+
     return `<div class="sec-head ${sec.key}">${sec.label}</div>` + items.map(s => {
       if (sec.key !== 'transit') n++;
-      const num = sec.key === 'transit' ? '✈' : n;
+      const num    = sec.key === 'transit' ? '✈' : n;
       const past   = stopStatus(s.dates) === 'past';
-      const isNext = s.id === nextId;
+      const isNext = s.id === nid;
       const pc     = pinColor(s, isNext);
+      const hasDays = s.days && s.days.length > 1;
+      const isOpen  = openDays.has(s.id);
+
+      // Build the days list HTML
+      let daysHtml = '';
+      if (hasDays) {
+        daysHtml = `<div class="days-list${isOpen ? ' open' : ''}" id="days-${s.id}">` +
+          s.days.map(d => {
+            const st   = dayStatus(d.date);
+            const acts = d.activities.filter(Boolean);
+            if (!acts.length && !d.date) return '';
+            return `<div class="day-row${st === 'today' ? ' today-row' : st === 'past' ? ' past-row' : ''}">
+              <div class="day-dt">${fmtDayDate(d.date)}${st === 'today' ? ' · TODAY' : ''}</div>
+              <div class="day-acts-txt">${acts.join('<br>')}</div>
+            </div>`;
+          }).join('') +
+        '</div>';
+      }
+
       return `<div class="stop-card${s.id === activeId ? ' active' : ''}${past ? ' done' : ''}${isNext ? ' next-card' : ''}" onclick="selectStop(${s.id})" ondblclick="openEdit(${s.id})" title="Double-click to edit">
         <div class="snum" style="background:${pc};color:#fff${isNext ? ';box-shadow:0 0 0 3px rgba(255,107,53,0.35)' : ''}">${num}</div>
         <div class="sinfo">
           <div class="sname">${s.name}${isNext ? '<span class="stag next-tag">▶ Next</span>' : ''}${past ? '<span class="stag done-tag">✓ Done</span>' : ''}${s.type === 'wedding' ? '<span class="wtag">💒</span>' : ''}</div>
           <div class="sdates">${s.dates}</div>
           ${s.accom ? `<div class="saccom">🏠 ${s.accom}</div>` : ''}
-          <div class="snote">${s.notes}</div>
+          ${!hasDays ? `<div class="snote">${s.notes}</div>` : ''}
           ${isNZ(s) ? `<a href="${navUrl(s)}" target="_blank" rel="noopener" class="nav-btn" onclick="event.stopPropagation()">🧭 Navigate</a>` : ''}
         </div>
-      </div>`;
+        ${hasDays ? `<button class="chev${isOpen ? ' open' : ''}" id="chev-${s.id}" onclick="event.stopPropagation();toggleDays(${s.id})" title="Show daily schedule">▶</button>` : ''}
+      </div>${daysHtml}`;
     }).join('');
   }).join('');
+}
+
+function toggleDays(id) {
+  const list = document.getElementById(`days-${id}`);
+  const chev = document.getElementById(`chev-${id}`);
+  if (!list) return;
+  const willOpen = !list.classList.contains('open');
+  list.classList.toggle('open', willOpen);
+  if (chev) chev.classList.toggle('open', willOpen);
+  if (willOpen) openDays.add(id); else openDays.delete(id);
 }
 
 // render() shows markers + sidebar immediately; routes load async in background
@@ -797,6 +891,7 @@ function render(refetchRoutes = false) {
 // ── INTERACTIONS ──────────────────────────────────────────────────────────────
 function selectStop(id) {
   activeId = id;
+  openDays.add(id);                        // expand this stop's daily schedule
   const s = stops.find(x => x.id === id);
   if (s && isNZ(s)) map.panTo([s.lat, s.lon], { animate: true });
   renderMarkers();   // instant
