@@ -352,7 +352,7 @@ header h1 span { color: var(--gold); font-style: italic; }
   background: #f8f7f3;
 }
 .drive-div-line { flex: 1; height: 1px; background: #e0ddd5; }
-.drive-label { font-size: 0.6rem; color: #aaa; white-space: nowrap; font-weight: 500; }
+.drive-label { font-size: 0.75rem; color: #666; white-space: nowrap; font-weight: 700; }
 
 /* ── MODAL ── */
 #modal-overlay {
@@ -1275,15 +1275,17 @@ async function updateWeather() {
     if (!isNZ(s)) continue;
     const el = document.getElementById(`sw-${s.id}`);
     if (!el) continue;
-    const start = parseStartDate(s.dates);
-    if (!start) continue;
-    const daysAway = Math.ceil((start - today) / 864e5);
-    if (daysAway > 14 || daysAway < -1) continue;
     const daily = await fetchWeather(s.lat, s.lon);
     if (!daily) continue;
-    const targetStr = start.toISOString().split('T')[0];
-    const idx = daily.time.indexOf(targetStr);
-    if (idx === -1) continue;
+    // Within forecast window → show forecast for trip date; otherwise → today's conditions
+    const start = parseStartDate(s.dates);
+    const daysAway = start ? Math.ceil((start - today) / 864e5) : 999;
+    let idx = 0; // default: today
+    if (start && daysAway >= 0 && daysAway <= 13) {
+      const targetStr = start.toISOString().split('T')[0];
+      const fi = daily.time.indexOf(targetStr);
+      if (fi !== -1) idx = fi;
+    }
     const code = daily.weathercode[idx];
     const max  = Math.round(daily.temperature_2m_max[idx]);
     const min  = Math.round(daily.temperature_2m_min[idx]);
