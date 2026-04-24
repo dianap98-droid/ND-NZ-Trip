@@ -1284,7 +1284,7 @@ async function fetchWeather(lat, lon) {
   if (weatherCache[key]) return weatherCache[key];
   try {
     const res = await fetch(
-      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weathercode,temperature_2m_max,temperature_2m_min&forecast_days=14&timezone=Pacific%2FAuckland`,
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weathercode,temperature_2m_max,temperature_2m_min,sunrise,sunset&forecast_days=14&timezone=Pacific%2FAuckland`,
       { signal: AbortSignal.timeout(5000) }
     );
     if (!res.ok) throw new Error();
@@ -1311,10 +1311,13 @@ async function updateWeather() {
       const fi = daily.time.indexOf(targetStr);
       if (fi !== -1) idx = fi;
     }
-    const code = daily.weathercode[idx];
-    const max  = Math.round(daily.temperature_2m_max[idx]);
-    const min  = Math.round(daily.temperature_2m_min[idx]);
-    el.textContent = `${WMO[code] || '🌡️'} ${max}°/${min}°`;
+    const code    = daily.weathercode[idx];
+    const max     = Math.round(daily.temperature_2m_max[idx]);
+    const min     = Math.round(daily.temperature_2m_min[idx]);
+    const sunrise = (daily.sunrise?.[idx] || '').split('T')[1]?.slice(0, 5) || '';
+    const sunset  = (daily.sunset?.[idx]  || '').split('T')[1]?.slice(0, 5) || '';
+    const sun     = sunrise && sunset ? ` · 🌅${sunrise} 🌇${sunset}` : '';
+    el.textContent = `${WMO[code] || '🌡️'} ${max}°/${min}°${sun}`;
   }
 }
 
