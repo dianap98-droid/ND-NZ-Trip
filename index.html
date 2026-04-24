@@ -243,6 +243,10 @@ header h1 span { color: var(--gold); font-style: italic; }
   #route-legend { display: none; }
 
   .add-btn { padding: 0.45rem 0.85rem; font-size: 0.75rem; bottom: 0.6rem; right: 0.6rem; }
+
+  /* Compact layer switcher on mobile */
+  .layer-switcher { flex-direction: row; gap: 2px; padding: 3px; }
+  .lbtn { padding: 0.22rem 0.4rem; font-size: 0.6rem; }
 }
 </style>
 </head>
@@ -644,9 +648,14 @@ function showTip(evt, s) {
   tip.innerHTML = `<h3>${s.name}</h3><div class="td">${s.dates}</div>${s.accom ? `<p style="font-size:0.66rem;color:var(--gold-light);margin-bottom:0.28rem">🏠 ${s.accom}</p>` : ''}<p>${s.notes}</p><p class="th">Double-click to edit</p>`;
   tip.style.display = 'block';
   const rect = document.getElementById('map-wrap').getBoundingClientRect();
-  let lx = evt.clientX - rect.left + 14, ly = evt.clientY - rect.top + 14;
-  if (lx + 250 > rect.width)  lx = evt.clientX - rect.left - 256;
-  if (ly + 190 > rect.height) ly = evt.clientY - rect.top  - 196;
+  const tw = 248, th = 200, pad = 8;
+  let lx = evt.clientX - rect.left + 14;
+  let ly = evt.clientY - rect.top  + 14;
+  if (lx + tw > rect.width  - pad) lx = evt.clientX - rect.left - tw - 14;
+  if (ly + th > rect.height - pad) ly = evt.clientY - rect.top  - th - 14;
+  // Clamp — never go off any edge
+  lx = Math.max(pad, Math.min(lx, rect.width  - tw - pad));
+  ly = Math.max(pad, Math.min(ly, rect.height - th - pad));
   tip.style.left = lx + 'px';
   tip.style.top  = ly + 'px';
 }
@@ -731,6 +740,14 @@ async function boot() {
   } catch(e) {
     console.warn('Sheet fetch failed:', e);
     stops = [];
+  }
+  // Fit map to show all NZ stops with padding
+  const nzStops = stops.filter(isNZ);
+  if (nzStops.length) {
+    map.fitBounds(
+      L.latLngBounds(nzStops.map(s => [s.lat, s.lon])),
+      { padding: [44, 44], maxZoom: 7 }
+    );
   }
   render();
 }
