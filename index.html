@@ -160,13 +160,24 @@ header h1 span { color: var(--gold); font-style: italic; }
 .day-row.today-row { background: rgba(255,107,53,0.06); border-radius: 4px; }
 
 .day-dt {
-  font-size: 0.62rem; font-weight: 700;
-  color: #aaa; text-transform: uppercase; letter-spacing: 0.06em;
+  font-size: 0.67rem; font-weight: 800;
+  color: #777; text-transform: uppercase; letter-spacing: 0.07em;
   margin-bottom: 0.1rem;
 }
 .day-row.today-row .day-dt { color: #ff6b35; }
 .day-row.past-row  .day-dt { color: #34c759; }
-.day-acts-txt { font-size: 0.7rem; color: #4a4a4a; line-height: 1.42; }
+.day-acts-txt { font-size: 0.71rem; color: #4a4a4a; line-height: 1.42; }
+
+/* Next upcoming day — enlarged + highlighted */
+.day-row.next-day { background: rgba(255,107,53,0.07); border-radius: 4px; }
+.day-row.next-day::before {
+  background: #ff6b35; border-color: #f5f2ec;
+  width: 12px; height: 12px;
+  left: calc(1.55rem - 5px); top: 0.72rem;
+  box-shadow: 0 0 0 3px rgba(255,107,53,0.22);
+}
+.day-row.next-day .day-dt  { color: #ff6b35; font-size: 0.74rem; }
+.day-row.next-day .day-acts-txt { font-size: 0.78rem; font-weight: 600; color: #222; }
 
 /* Navigate button — sidebar */
 .nav-btn {
@@ -890,15 +901,18 @@ function renderSidebar() {
       let daysHtml = '';
       if (hasDays) {
         daysHtml = `<div class="days-list${isOpen ? ' open' : ''}" id="days-${s.id}">` +
-          s.days.map(d => {
-            const st   = dayStatus(d.date);
+          (() => { let foundNext = false; return s.days.map(d => {
+            const st      = dayStatus(d.date);
+            const isNextDay = isNext && !foundNext && st !== 'past';
+            if (isNextDay) foundNext = true;
             const acts = d.activities.filter(Boolean);
             if (!acts.length && !d.date) return '';
-            return `<div class="day-row${st === 'today' ? ' today-row' : st === 'past' ? ' past-row' : ''}">
+            const cls = st === 'today' ? ' today-row' : st === 'past' ? ' past-row' : isNextDay ? ' next-day' : '';
+            return `<div class="day-row${cls}">
               <div class="day-dt">${fmtDayDate(d.date)}${st === 'today' ? ' · TODAY' : ''}</div>
               <div class="day-acts-txt">${acts.join('<br>')}</div>
             </div>`;
-          }).join('') +
+          }).join('')})() +
         '</div>';
       }
 
