@@ -228,6 +228,25 @@ header h1 span { color: var(--gold); font-style: italic; }
 }
 #sidebar-toggle:hover { background: #333; }
 
+/* ── RESIZE HANDLE ── */
+#resize-handle {
+  position: absolute; top: 0; bottom: 0;
+  left: var(--sidebar-w); width: 8px;
+  cursor: col-resize; z-index: 190;
+  background: transparent;
+}
+#resize-handle::after {
+  content: ''; position: absolute;
+  top: 50%; transform: translateY(-50%);
+  left: 2px; width: 3px; height: 48px;
+  border-radius: 2px;
+  background: rgba(201,168,76,0.22);
+  transition: background 0.15s, height 0.15s;
+}
+#resize-handle:hover::after,
+#resize-handle.dragging::after { background: rgba(201,168,76,0.7); height: 72px; }
+@media (max-width: 768px) { #resize-handle { display: none; } }
+
 /* ── MAP ── */
 #map-wrap { flex: 1; position: relative; z-index: 1; min-width: 0; }
 #map-leaflet { width: 100%; height: 100%; }
@@ -418,6 +437,7 @@ header h1 span { color: var(--gold); font-style: italic; }
   </div>
 
   <button id="sidebar-toggle" onclick="toggleDesktop()" title="Toggle sidebar">◀</button>
+  <div id="resize-handle"></div>
 
   <div id="mob-overlay" onclick="toggleMobile()"></div>
 
@@ -1109,6 +1129,41 @@ async function syncData(isManual = false) {
 
 // Manual refresh button
 function manualRefresh() { syncData(true); }
+
+// ── SIDEBAR RESIZE ────────────────────────────────────────────────────────────
+(function() {
+  const handle  = document.getElementById('resize-handle');
+  const toggle  = document.getElementById('sidebar-toggle');
+  let dragging = false, startX = 0, startW = 0, raf = null;
+
+  handle.addEventListener('mousedown', e => {
+    if (!desktopOpen) return;
+    dragging = true;
+    startX = e.clientX;
+    startW = document.getElementById('sidebar').offsetWidth;
+    handle.classList.add('dragging');
+    document.body.style.cssText += ';cursor:col-resize;user-select:none';
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(() => {
+      const w = Math.max(200, Math.min(560, startW + e.clientX - startX));
+      document.documentElement.style.setProperty('--sidebar-w', w + 'px');
+      handle.style.left = w + 'px';
+      toggle.style.left = w + 'px';
+      map.invalidateSize();
+    });
+  });
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    handle.classList.remove('dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  });
+})();
 
 // Boot + start polling
 syncData(true);
