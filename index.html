@@ -452,7 +452,10 @@ header h1 span { color: var(--gold); font-style: italic; }
 
   /* Modal: never overlap Dynamic Island */
   #modal-box { margin-top: env(safe-area-inset-top); }
-  #countdown-bar { display: none; }
+  #countdown-bar { font-size: 0.68rem; padding: 0.22rem 0.85rem; }
+  #countdown-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .clock-pair { gap: 0.65rem; }
+  .clock-time { font-size: 0.68rem; }
 }
 </style>
 </head>
