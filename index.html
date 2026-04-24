@@ -21,8 +21,13 @@
 }
 
 html, body { height: 100%; overflow: hidden; }
-html { background: var(--ink); }
-body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--ink); display: flex; flex-direction: column; }
+html { height: 100dvh; background: var(--ink); }
+body {
+  font-family: 'DM Sans', sans-serif; background: var(--ink); color: var(--ink);
+  display: flex; flex-direction: column;
+  height: 100dvh; /* full screen including safe areas */
+}
+#app { background: var(--cream); }
 
 /* ── HEADER ── */
 header {
