@@ -743,14 +743,17 @@ function renderSidebar() {
   const el     = document.getElementById('sidebar-inner');
   const nextId = findNextId();
   const secs = [
-    { key: 'wedding', label: '💍 Queenstown & Wedding', types: ['wedding'] },
-    { key: 'south',   label: '🏔 South Island',          types: ['south'] },
-    { key: 'transit', label: '✈️ Fly to North Island',   types: ['transit'] },
+    { key: 'transit', label: '✈️ Outbound Flight',        types: ['transit'], nzOnly: false },
+    { key: 'wedding', label: '💍 Queenstown & Wedding',   types: ['wedding'] },
+    { key: 'south',   label: '🏔 South Island',           types: ['south'] },
+    { key: 'transit', label: '✈️ Fly to North Island',    types: ['transit'], nzOnly: true },
     { key: 'north',   label: '🌿 North Island',            types: ['north'] },
   ];
   let n = 0;
   el.innerHTML = secs.map(sec => {
-    const items = stops.filter(s => sec.types.includes(s.type));
+    let items = stops.filter(s => sec.types.includes(s.type));
+    if (sec.nzOnly === true)  items = items.filter(s =>  isNZ(s));
+    if (sec.nzOnly === false) items = items.filter(s => !isNZ(s));
     if (!items.length) return '';
     return `<div class="sec-head ${sec.key}">${sec.label}</div>` + items.map(s => {
       if (sec.key !== 'transit') n++;
