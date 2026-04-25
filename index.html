@@ -354,6 +354,19 @@ header h1 span { color: var(--gold); font-style: italic; }
 .trip-progress { height: 3px; background: #2a2a2a; flex-shrink: 0; }
 .trip-progress-fill { height: 100%; background: var(--gold); width: 0%; transition: width 0.6s ease; }
 
+/* ── FLIGHT CARD ── */
+.flight-card { background: #f0f4f8 !important; border-left: 3px solid var(--transit) !important; }
+.flight-card-name { font-weight: 600; font-size: 0.8rem; color: var(--transit); margin-bottom: 0.18rem; }
+.flight-legs { margin-top: 0.35rem; display: flex; flex-direction: column; gap: 0; }
+.flight-leg {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.28rem 0; border-top: 1px dashed #c8d8e8; font-size: 0.76rem;
+}
+.flight-leg:first-child { border-top: none; }
+.fl-route { font-weight: 600; color: var(--ink); letter-spacing: 0.02em; }
+.fl-route span { color: var(--transit); font-weight: 400; margin: 0 0.3rem; }
+.fl-time { font-weight: 700; color: var(--transit); font-variant-numeric: tabular-nums; font-size: 0.78rem; }
+
 /* ── WEATHER BADGE ── */
 .sweather {
   display: inline-block; font-size: 0.68rem; color: #888;
@@ -1049,6 +1062,31 @@ function renderSidebar() {
             </div>`;
           }).join('')})() +
         '</div>';
+      }
+
+      // ── Flight card template for transit stops ──
+      if (s.type === 'transit') {
+        const allActs = s.days.flatMap(d => d.activities).filter(Boolean);
+        const legs = allActs.map(note => {
+          const m = /FLIGHT\s*\d*[.\-\s]*(.+?)(?:\s*@\s*(.+))?$/i.exec(note);
+          const raw = m ? m[1] : note;
+          const time = m ? (m[2] || '').trim() : '';
+          const parts = raw.split(/\s*[>→]\s*/);
+          return { from: (parts[0] || raw).trim().toUpperCase(), to: (parts[1] || '').trim().toUpperCase(), time };
+        });
+        const legsHtml = legs.length
+          ? legs.map(l => `<div class="flight-leg">
+              <span class="fl-route">${l.from}${l.to ? `<span>→</span>${l.to}` : ''}</span>
+              ${l.time ? `<span class="fl-time">${l.time}</span>` : ''}
+            </div>`).join('')
+          : `<div style="font-size:0.72rem;color:#888">${s.notes}</div>`;
+        return `<div class="stop-card flight-card${s.id === activeId ? ' active' : ''}" onclick="selectStop(${s.id})" ondblclick="openEdit(${s.id})">
+          <div class="sinfo">
+            <div class="flight-card-name">✈ ${s.name}</div>
+            <div class="sdates">${s.dates}</div>
+            <div class="flight-legs">${legsHtml}</div>
+          </div>
+        </div>${daysHtml}`;
       }
 
       return `<div class="stop-card${s.id === activeId ? ' active' : ''}${past ? ' done' : ''}${isNext ? ' next-card' : ''}" onclick="selectStop(${s.id})" ondblclick="openEdit(${s.id})" title="Double-click to edit">
