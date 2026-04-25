@@ -1014,7 +1014,7 @@ function renderSidebar() {
       const past   = stopStatus(s.dates) === 'past';
       const isNext = s.id === nid;
       const pc     = pinColor(s, isNext);
-      const hasDays = s.days && s.days.length > 1;
+      const hasDays = s.days && s.days.some(d => d.activities.length > 0);
       const isOpen  = openDays.has(s.id);
 
       // Build the days list HTML
