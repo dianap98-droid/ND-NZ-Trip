@@ -782,7 +782,7 @@ function buildStops(rows) {
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let stops = [], nextId = 1, activeId = null, editingId = null;
-let desktopOpen = true;
+let desktopOpen = true, totalDriveKm = 0;
 const openDays = new Set();
 const TC = { wedding: '#c94a4a', south: '#4a7c6f', north: '#7c4a6f', transit: '#4a6f7c' };
 const isNZ = s => s.lon > 160 && s.lon < 180;
@@ -900,6 +900,7 @@ async function renderRoutes() {
 
   // Inject drive times — fetch each pair individually so one bad segment doesn't kill the rest
   async function injectTimesAsync(group) {
+    let km = 0;
     for (let i = 0; i < group.length - 1; i++) {
       const el = document.getElementById(`dt-${group[i].id}-${group[i+1].id}`);
       if (!el) continue;
@@ -907,9 +908,9 @@ async function renderRoutes() {
       try {
         const coords = `${group[i].lon},${group[i].lat};${group[i+1].lon},${group[i+1].lat}`;
         const cacheKey = `leg:${coords}`;
-        let dur;
-        if (routeCache[cacheKey]) {
-          dur = routeCache[cacheKey];
+        let dur, dist;
+        if (routeCache[cacheKey]?.dur != null) {
+          ({ dur, dist } = routeCache[cacheKey]);
         } else {
           const res = await fetch(
             `https://router.project-osrm.org/route/v1/driving/${coords}?overview=false`,
@@ -918,9 +919,11 @@ async function renderRoutes() {
           if (!res.ok) throw new Error();
           const data = await res.json();
           if (!data.routes?.length) throw new Error();
-          dur = data.routes[0].legs[0].duration;
-          routeCache[cacheKey] = dur;
+          dur  = data.routes[0].legs[0].duration;
+          dist = data.routes[0].legs[0].distance;
+          routeCache[cacheKey] = { dur, dist };
         }
+        km += (dist || 0) / 1000;
         const h = Math.floor(dur / 3600);
         const m = Math.round((dur % 3600) / 60);
         lbl.textContent = h > 0 ? `🚗 ${h}h ${m}m` : `🚗 ${m}m`;
@@ -928,11 +931,15 @@ async function renderRoutes() {
         el.style.display = 'none'; // no road? hide the divider
       }
     }
+    return km;
   }
   const southGroup = stops.filter(s => s.type === 'south' && isNZ(s));
   const northGroup = stops.filter(s => s.type === 'north' && isNZ(s));
-  injectTimesAsync(southGroup);
-  injectTimesAsync(northGroup);
+  Promise.all([injectTimesAsync(southGroup), injectTimesAsync(northGroup)])
+    .then(([skm, nkm]) => {
+      totalDriveKm = Math.round(skm + nkm);
+      updateCountdown();
+    });
 
   // Keep markers on top of routes
   markerLayer.bringToFront();
@@ -1280,7 +1287,8 @@ function updateCountdown() {
     el.textContent = `✈ Day ${dayIn} in New Zealand — live it up!`;
   } else {
     const days = Math.ceil((start - now) / 864e5);
-    el.textContent = `✈ ${days} day${days !== 1 ? 's' : ''} until New Zealand · Aug 10, 2026`;
+    const kmStr = totalDriveKm > 0 ? ` · ~${totalDriveKm.toLocaleString()} km` : '';
+    el.textContent = `✈ ${days} day${days !== 1 ? 's' : ''} until New Zealand · Aug 10, 2026${kmStr}`;
   }
 }
 
