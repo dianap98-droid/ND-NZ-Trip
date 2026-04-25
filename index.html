@@ -350,6 +350,10 @@ header h1 span { color: var(--gold); font-style: italic; }
 .clock-lbl  { opacity: 0.5; font-size: 0.62rem; letter-spacing: 0.05em; }
 .clock-time { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--gold-light); }
 
+/* ── TRIP PROGRESS BAR ── */
+.trip-progress { height: 3px; background: #2a2a2a; flex-shrink: 0; }
+.trip-progress-fill { height: 100%; background: var(--gold); width: 0%; transition: width 0.6s ease; }
+
 /* ── WEATHER BADGE ── */
 .sweather {
   display: inline-block; font-size: 0.68rem; color: #888;
@@ -480,11 +484,13 @@ header h1 span { color: var(--gold); font-style: italic; }
 
 <div id="countdown-bar">
   <span id="countdown-text"></span>
-  <div class="clock-pair">
+  <div class="clock-pair" style="flex-shrink:0">
     <div class="clock-item"><span class="clock-dot" style="background:#4a90d9"></span><span class="clock-lbl">IL</span><span class="clock-time" id="clk-il"></span></div>
     <div class="clock-item"><span class="clock-dot" style="background:#5aba6a"></span><span class="clock-lbl">NZ</span><span class="clock-time" id="clk-nz"></span></div>
   </div>
 </div>
+
+<div class="trip-progress"><div class="trip-progress-fill" id="trip-progress-fill"></div></div>
 
 <div class="legend">
   <div class="legend-item"><div class="legend-dot" style="background:var(--wedding)"></div>Queenstown &amp; Wedding</div>
@@ -928,7 +934,9 @@ async function renderRoutes() {
         const m = Math.round((dur % 3600) / 60);
         lbl.textContent = h > 0 ? `🚗 ${h}h ${m}m` : `🚗 ${m}m`;
       } catch {
-        el.style.display = 'none'; // no road? hide the divider
+        const isBoat = /doubtful|milford|stewart|great.barrier/i.test(group[i].name + group[i+1].name);
+        lbl.textContent = isBoat ? '⛵ boat' : '🚗 ?';
+        lbl.style.opacity = '0.45';
       }
     }
     return km;
@@ -1275,16 +1283,20 @@ function manualRefresh() { syncData(true); }
 
 // ── COUNTDOWN ─────────────────────────────────────────────────────────────────
 function updateCountdown() {
-  const el = document.getElementById('countdown-text');
+  const el   = document.getElementById('countdown-text');
+  const fill = document.getElementById('trip-progress-fill');
   if (!el) return;
   const now   = new Date(); now.setHours(0, 0, 0, 0);
   const start = new Date(2026, 7, 10);
   const end   = new Date(2026, 9, 2);
+  const total = end - start;
+  const pct   = Math.max(0, Math.min(100, Math.round((now - start) / total * 100)));
+  if (fill) fill.style.width = pct + '%';
   if (now >= end) {
     el.textContent = '♥ What a trip — memories forever';
   } else if (now >= start) {
     const dayIn = Math.floor((now - start) / 864e5) + 1;
-    el.textContent = `✈ Day ${dayIn} in New Zealand — live it up!`;
+    el.textContent = `✈ Day ${dayIn} in New Zealand — live it up! (${pct}%)`;
   } else {
     const days = Math.ceil((start - now) / 864e5);
     const kmStr = totalDriveKm > 0 ? ` · ~${totalDriveKm.toLocaleString()} km` : '';
@@ -1328,20 +1340,19 @@ async function fetchWeather(lat, lon) {
 }
 
 async function updateWeather() {
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  for (const s of stops) {
-    if (!isNZ(s)) continue;
+  const today   = new Date(); today.setHours(0, 0, 0, 0);
+  const nzStops = stops.filter(s => isNZ(s) && document.getElementById(`sw-${s.id}`));
+  const results = await Promise.allSettled(nzStops.map(s => fetchWeather(s.lat, s.lon)));
+  results.forEach((res, i) => {
+    const s  = nzStops[i];
     const el = document.getElementById(`sw-${s.id}`);
-    if (!el) continue;
-    const daily = await fetchWeather(s.lat, s.lon);
-    if (!daily) continue;
-    // Within forecast window → show forecast for trip date; otherwise → today's conditions
-    const start = parseStartDate(s.dates);
+    if (!el || res.status !== 'fulfilled' || !res.value) return;
+    const daily    = res.value;
+    const start    = parseStartDate(s.dates);
     const daysAway = start ? Math.ceil((start - today) / 864e5) : 999;
-    let idx = 0; // default: today
+    let idx = 0;
     if (start && daysAway >= 0 && daysAway <= 13) {
-      const targetStr = start.toISOString().split('T')[0];
-      const fi = daily.time.indexOf(targetStr);
+      const fi = daily.time.indexOf(start.toISOString().split('T')[0]);
       if (fi !== -1) idx = fi;
     }
     const code    = daily.weathercode[idx];
@@ -1351,7 +1362,7 @@ async function updateWeather() {
     const sunset  = (daily.sunset?.[idx]  || '').split('T')[1]?.slice(0, 5) || '';
     const sun     = sunrise && sunset ? ` · 🌅${sunrise} 🌇${sunset}` : '';
     el.textContent = `${WMO[code] || '🌡️'} ${max}°/${min}°${sun}`;
-  }
+  });
 }
 
 // ── SERVICE WORKER ────────────────────────────────────────────────────────────
