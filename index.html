@@ -447,8 +447,8 @@ header h1 span { color: var(--gold); font-style: italic; }
   .layer-switcher { flex-direction: row; gap: 2px; padding: 3px; }
   .lbtn { padding: 0.2rem 0.38rem; font-size: 0.58rem; }
 
-  /* Nav button full-width with bottom safe area */
-  .nav-btn { width: 100%; text-align: center; }
+  /* Nav button compact on mobile */
+  .nav-btn { width: auto; padding: 0.22rem 0.6rem; font-size: 0.68rem; margin-top: 0.3rem; }
 
   /* Modal: never overlap Dynamic Island */
   #modal-box { margin-top: env(safe-area-inset-top); }
@@ -898,19 +898,41 @@ async function renderRoutes() {
 
   if (naRes.pts) L.polyline(naRes.pts, driveOpts(TC.north)).addTo(routeLayer);
 
-  // Inject drive times into sidebar dividers
-  function injectTimes(group, legs) {
-    group.forEach((s, i) => {
-      if (i >= group.length - 1 || !legs[i]) return;
-      const el = document.getElementById(`dt-${s.id}-${group[i+1].id}`);
-      if (!el) return;
-      const h = Math.floor(legs[i].dur / 3600);
-      const m = Math.round((legs[i].dur % 3600) / 60);
-      el.querySelector('.drive-label').textContent = h > 0 ? `🚗 ${h}h ${m}m` : `🚗 ${m}m`;
-    });
+  // Inject drive times — fetch each pair individually so one bad segment doesn't kill the rest
+  async function injectTimesAsync(group) {
+    for (let i = 0; i < group.length - 1; i++) {
+      const el = document.getElementById(`dt-${group[i].id}-${group[i+1].id}`);
+      if (!el) continue;
+      const lbl = el.querySelector('.drive-label');
+      try {
+        const coords = `${group[i].lon},${group[i].lat};${group[i+1].lon},${group[i+1].lat}`;
+        const cacheKey = `leg:${coords}`;
+        let dur;
+        if (routeCache[cacheKey]) {
+          dur = routeCache[cacheKey];
+        } else {
+          const res = await fetch(
+            `https://router.project-osrm.org/route/v1/driving/${coords}?overview=false`,
+            { signal: AbortSignal.timeout(6000) }
+          );
+          if (!res.ok) throw new Error();
+          const data = await res.json();
+          if (!data.routes?.length) throw new Error();
+          dur = data.routes[0].legs[0].duration;
+          routeCache[cacheKey] = dur;
+        }
+        const h = Math.floor(dur / 3600);
+        const m = Math.round((dur % 3600) / 60);
+        lbl.textContent = h > 0 ? `🚗 ${h}h ${m}m` : `🚗 ${m}m`;
+      } catch {
+        el.style.display = 'none'; // no road? hide the divider
+      }
+    }
   }
-  injectTimes(sa, saRes.legs);
-  injectTimes(na, naRes.legs);
+  const southGroup = stops.filter(s => s.type === 'south' && isNZ(s));
+  const northGroup = stops.filter(s => s.type === 'north' && isNZ(s));
+  injectTimesAsync(southGroup);
+  injectTimesAsync(northGroup);
 
   // Keep markers on top of routes
   markerLayer.bringToFront();
