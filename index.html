@@ -366,6 +366,13 @@ header h1 span { color: var(--gold); font-style: italic; }
 .fl-route { font-weight: 600; color: var(--ink); letter-spacing: 0.02em; }
 .fl-route span { color: var(--transit); font-weight: 400; margin: 0 0.3rem; }
 .fl-time { font-weight: 700; color: var(--transit); font-variant-numeric: tabular-nums; font-size: 0.78rem; }
+.fl-track {
+  display: inline-block; background: var(--transit); color: #fff;
+  font-size: 0.6rem; font-weight: 700; padding: 2px 6px; border-radius: 4px;
+  text-decoration: none; letter-spacing: 0.04em; flex-shrink: 0;
+  transition: background 0.15s;
+}
+.fl-track:hover { background: #2a5f7a; }
 
 /* ── WEATHER BADGE ── */
 .sweather {
@@ -1068,16 +1075,24 @@ function renderSidebar() {
       if (s.type === 'transit') {
         const allActs = s.days.flatMap(d => d.activities).filter(Boolean);
         const legs = allActs.map(note => {
-          const m = /FLIGHT\s*\d*[.\-\s]*(.+?)(?:\s*@\s*(.+))?$/i.exec(note);
+          const flightNum = (note.match(/\b([A-Z]{2}\d{3,4})\b/i) || [])[1] || '';
+          const m = /FLIGHT\s*\d*[.\-\s]*(.+?)(?:\s*@\s*(.+?))?(?:\s*\|.*)?$/i.exec(note);
           const raw = m ? m[1] : note;
           const time = m ? (m[2] || '').trim() : '';
           const parts = raw.split(/\s*[>→]\s*/);
-          return { from: (parts[0] || raw).trim().toUpperCase(), to: (parts[1] || '').trim().toUpperCase(), time };
+          return {
+            from: (parts[0] || raw).trim().toUpperCase(),
+            to: (parts[1] || '').trim().replace(/\s*\|.*/, '').trim().toUpperCase(),
+            time, flightNum: flightNum.toUpperCase()
+          };
         });
         const legsHtml = legs.length
           ? legs.map(l => `<div class="flight-leg">
               <span class="fl-route">${l.from}${l.to ? `<span>→</span>${l.to}` : ''}</span>
-              ${l.time ? `<span class="fl-time">${l.time}</span>` : ''}
+              <span style="display:flex;align-items:center;gap:0.35rem;flex-shrink:0">
+                ${l.time ? `<span class="fl-time">${l.time}</span>` : ''}
+                ${l.flightNum ? `<a class="fl-track" href="https://www.flightradar24.com/${l.flightNum}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${l.flightNum} ↗</a>` : ''}
+              </span>
             </div>`).join('')
           : `<div style="font-size:0.72rem;color:#888">${s.notes}</div>`;
         return `<div class="stop-card flight-card${s.id === activeId ? ' active' : ''}" onclick="selectStop(${s.id})" ondblclick="openEdit(${s.id})">
